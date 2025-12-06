@@ -13,12 +13,14 @@ struct GameDetailView: View {
 
     let gameId: UUID
     let team: TeamSettings
+    
+    let playerRepo: PlayerRepository    //NEW
 
     @State private var game: Game?
 
     var body: some View {
         Group {
-            if let g = game {
+            if let g = gameStore.game(withId: gameId) {
                 List {
                     Section(header: Text("Details")) {
                         Text(g.opponent.isEmpty ? "Opponent: TBD" : "Opponent: \(g.opponent)")
@@ -42,7 +44,7 @@ struct GameDetailView: View {
                         }
 
                         NavigationLink("Lineup Generator") {
-                            LineupGeneratorView(gameId: g.id, team: team)
+                            LineupGeneratorView(gameId: g.id, team: team, playerRepo: playerRepo)
                         }
                     }
                 }

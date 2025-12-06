@@ -55,6 +55,9 @@ struct AvailabilityView: View {
         .task {
             await load()
         }
+        .onDisappear() {
+            save()
+        }
     }
 
     private func binding(for playerId: UUID) -> Binding<Bool> {

@@ -24,7 +24,7 @@ struct GameListView: View {
             } else {
                 ForEach(games) { game in
                     NavigationLink {
-                        GameDetailView(gameId: game.id, team: team)
+                        GameDetailView(gameId: game.id, team: team, playerRepo: InMemoryPlayerRepository())
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(game.opponent.isEmpty ? "Opponent TBD" : game.opponent)
