@@ -23,3 +23,15 @@ struct Game: Identifiable, Codable, Equatable {
     // playerId -> isAvailable
     var availability: [UUID: Bool] = [:]
 }
+
+
+enum RunPhase {
+    case preKickoff          // show starters, waiting for Start button
+    case running             // game clock running
+    case pendingSubstitution // countdown shown, waiting for OK
+    case paused
+    case finished
+}
+
+
+

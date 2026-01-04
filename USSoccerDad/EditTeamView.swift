@@ -59,11 +59,11 @@ struct EditTeamView: View {
         }
         .navigationTitle("Edit Team")
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button("Cancel") {
-                    dismiss()
-                }
-            }
+//            ToolbarItem(placement: .topBarLeading) {
+//                Button("Cancel") {
+//                    dismiss()
+//                }
+//            }
 
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Save") {

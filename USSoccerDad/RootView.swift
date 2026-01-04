@@ -13,8 +13,8 @@ struct RootView: View {
     var body: some View {
         NavigationView {
             Group {
-                if let team = teamStore.activeTeam {
-                    MainTeamView(team: team)
+                if let teamSetting = teamStore.activeTeam {
+                    MainTeamView(team: teamSetting)
                 } else {
                     SetupTeamView()
                 }

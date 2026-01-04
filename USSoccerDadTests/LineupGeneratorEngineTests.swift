@@ -24,6 +24,7 @@ final class LineupGeneratorEngineTests: XCTestCase {
             name: name,
             seasonMinutesBeforeGame: minutes,
             isAvailable: available,
+            isInjured: false,
             isOnField: false,
             minutesThisGame: 0,
             continuousMinutesThisGame: 0
@@ -36,10 +37,10 @@ final class LineupGeneratorEngineTests: XCTestCase {
         let config = TeamSettings(
             id: UUID(),
             name: "TestTeam",
-            ageGroup: "U8",
+            ageGroup: .u8,
             playersOnField: 4,
-            minutesPerHalf: 10,
             numberOfPeriods: 4,
+            minutesPerPeriod: 10,
             hasDedicatedGoalkeeper: false
         )
 
@@ -109,5 +110,17 @@ final class LineupGeneratorEngineTests: XCTestCase {
 
         XCTAssertEqual(starters.count, 4)
         XCTAssertEqual(Set(starters.map(\.id)), Set(available.map(\.id)))
+    }
+}
+
+
+import Foundation
+
+struct SeededGenerator: RandomNumberGenerator {
+    private var state: UInt64
+    init(seed: UInt64) { self.state = seed }
+    mutating func next() -> UInt64 {
+        state = 6364136223846793005 &* state &+ 1
+        return state
     }
 }

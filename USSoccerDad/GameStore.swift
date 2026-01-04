@@ -46,7 +46,16 @@ final class GameStore: ObservableObject {
     }
 
     func updateAvailability(for gameId: UUID, availability: [UUID: Bool]) {
-        guard let index = games.firstIndex(where: { $0.id == gameId }) else { return }
+        guard let index = games.firstIndex(where: { $0.id == gameId }) else
+        {
+            #if DEBUG
+            assertionFailure("GameStore: Tried to update availability for missing game")
+            #endif
+            return
+        }
+        
+        
+        
         games[index].availability = availability
         persist()
     }

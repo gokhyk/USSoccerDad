@@ -1,3 +1,11 @@
+//
+//  GameDetailView.swift
+//  USSoccerDad
+//
+//  Created by Ayse Kula on 12/19/25.
+//
+
+import EventKit
 import SwiftUI
 
 struct GameDetailView: View {
@@ -9,6 +17,14 @@ struct GameDetailView: View {
 
     @State private var game: Game?
     @State private var errorMessage: String?
+    
+    @State private var showCalendarSheet = false
+    @State private var calendarEvent: EKEvent?
+    @State private var calendarError: String?
+
+    private let eventStore = EKEventStore()
+
+
 
     var body: some View {
         Group {
@@ -63,6 +79,19 @@ struct GameDetailView: View {
                             LineupGeneratorView(gameId: g.id, team: team, playerRepo: playerRepo)
                         }
                     }
+                    
+                    Section(header: Text("Calendar")) {
+                        if let calendarError {
+                            Text(calendarError)
+                                .foregroundStyle(.red)
+                        }
+
+                        Button("Add to Calendar") {
+                            Task { await addToCalendar() }
+                        }
+                    }
+
+
                 }
             } else {
                 Text("Game not found.")
@@ -107,4 +136,55 @@ struct GameDetailView: View {
             set: { game?[keyPath: keyPath] = $0 }
         )
     }
+    
+    private func makeCalendarEvent(from game: Game) -> EKEvent {
+        let ev = EKEvent(eventStore: eventStore)
+
+        // Title
+        let opponentPart = game.opponent.isEmpty ? "Game" : "vs \(game.opponent)"
+        ev.title = "Soccer \(opponentPart)"
+
+        // Start/end
+        ev.startDate = game.date
+
+        // Simple duration: 2 halves. (You can adjust later to add breaks.)
+        let durationMinutes = max(10, game.minutesPerHalf * 2)
+        ev.endDate = game.date.addingTimeInterval(TimeInterval(durationMinutes * 60))
+
+        // Location/notes
+        if let loc = game.location, !loc.isEmpty {
+            ev.location = loc
+        }
+        if let notes = game.notes, !notes.isEmpty {
+            ev.notes = notes
+        }
+
+        ev.calendar = eventStore.defaultCalendarForNewEvents
+        return ev
+    }
+
+    private func addToCalendar() async {
+        calendarError = nil
+
+        guard let g = game else {
+            calendarError = "Game is not loaded."
+            return
+        }
+
+        do {
+            let granted = try await eventStore.requestFullAccessToEvents()
+            guard granted else {
+                calendarError = "Calendar access was not granted."
+                return
+            }
+
+            // Prepare event and open Apple's editor UI so user can confirm/save
+            calendarEvent = makeCalendarEvent(from: g)
+            showCalendarSheet = true
+
+        } catch {
+            calendarError = "Calendar access error: \(error.localizedDescription)"
+        }
+    }
+
 }

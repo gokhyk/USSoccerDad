@@ -1,3 +1,11 @@
+//
+//  EndOfGameReportView.swift
+//  USSoccerDad
+//
+//  Created by Ayse Kula on 12/18/25.
+//
+
+
 import SwiftUI
 
 struct EndOfGameReportView: View {

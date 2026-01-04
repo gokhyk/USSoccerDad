@@ -5,7 +5,7 @@ import EventKitUI
 struct EventEditView: UIViewControllerRepresentable {
     let eventStore: EKEventStore
     let event: EKEvent
-    let onComplete: (Bool) -> Void   // true if saved, false if cancelled
+    let onComplete: (EKEventEditViewAction) -> Void
 
     func makeUIViewController(context: Context) -> EKEventEditViewController {
         let vc = EKEventEditViewController()
@@ -15,23 +15,25 @@ struct EventEditView: UIViewControllerRepresentable {
         return vc
     }
 
-    func updateUIViewController(_ uiViewController: EKEventEditViewController, context: Context) { }
+    func updateUIViewController(_ uiViewController: EKEventEditViewController, context: Context) {
+        // no-op
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onComplete: onComplete)
     }
 
     final class Coordinator: NSObject, EKEventEditViewDelegate {
-        let onComplete: (Bool) -> Void
+        let onComplete: (EKEventEditViewAction) -> Void
 
-        init(onComplete: @escaping (Bool) -> Void) {
+        init(onComplete: @escaping (EKEventEditViewAction) -> Void) {
             self.onComplete = onComplete
         }
 
         func eventEditViewController(_ controller: EKEventEditViewController,
                                      didCompleteWith action: EKEventEditViewAction) {
             controller.dismiss(animated: true)
-            onComplete(action == .saved)
+            onComplete(action)
         }
     }
 }

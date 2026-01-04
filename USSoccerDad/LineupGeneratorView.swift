@@ -194,6 +194,17 @@ struct LineupGeneratorView: View {
         .navigationTitle("Lineup (U5/6/7)")
         .task {
             await load()
+            
+            #if DEBUG
+            let availabilityCount =
+                gameStore.game(withId: gameId)?.availability.count ?? 0
+
+            assert(
+                availabilityCount > 0,
+                "LineupGenerator: Availability must be loaded before generating lineup"
+            )
+            #endif
+            
         }
     }
 

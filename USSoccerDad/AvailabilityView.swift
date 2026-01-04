@@ -80,6 +80,14 @@ struct AvailabilityView: View {
             if let game = gameStore.game(withId: gameId) {
                 availability = game.availability
             }
+            
+        #if DEBUG
+        assert(
+            gameStore.game(withId: gameId) != nil,
+            "AvailabilityView: Game must exist when loading availability"
+        )
+        #endif
+            
         } catch {
             errorMessage = "Failed to load players: \(error.localizedDescription)"
         }
@@ -87,5 +95,13 @@ struct AvailabilityView: View {
 
     private func save() {
         gameStore.updateAvailability(for: gameId, availability: availability)
+        
+    #if DEBUG
+    let stored = gameStore.game(withId: gameId)?.availability
+    assert(
+        stored == availability,
+        "AvailabilityView: Saved availability does not match stored availability"
+    )
+    #endif
     }
 }
