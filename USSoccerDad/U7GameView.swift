@@ -152,8 +152,8 @@ struct U7GameView: View {
 
     private func header(state: GameState) -> some View {
         VStack(spacing: 4) {
-            Text("Status: \(state.status.rawValue) Quarter \(state.currentQuarter)/\(state.config.quarters)")
-            //Text("Quarter \(state.currentQuarter)/\(state.config.quarters)")
+            Text("Status: \(state.status.rawValue) Quarter \(state.currentQuarter)/\(state.config.periods)")
+            //Text("Quarter \(state.currentQuarter)/\(state.config.periods)")
             Text("Minute in quarter: \(state.minuteInQuarter) Total minutes: \(state.totalMinutesElapsed)")
             //Text("Total minutes: \(state.totalMinutesElapsed)")
         }

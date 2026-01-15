@@ -75,8 +75,8 @@ final class U7GameViewModel: ObservableObject {
         availableIds: Set<UUID>
     ) {
         let config = GameConfig(
-            minutesPerQuarter: 10,
-            quarters: 4,
+            minutesPerPeriod: 10,
+            periods: 4,
             playersOnField: 4,
             minPlayersToStart: 3
         )
@@ -110,7 +110,7 @@ final class U7GameViewModel: ObservableObject {
         guard let state = gameState, state.status == .finished else { return }
         var updatedPlayers = players
 
-        let totalGameMinutes = state.config.playersOnField * (state.config.minutesPerQuarter * state.config.quarters)
+        let totalGameMinutes = state.config.playersOnField * (state.config.minutesPerPeriod * state.config.periods)
         let availableCount = state.players.filter { $0.isAvailable && !$0.isInjured }.count
         let absentCredit = availableCount > 0
             ? Int((Double(totalGameMinutes) / Double(availableCount)).rounded())
@@ -231,27 +231,27 @@ final class U7GameViewModel: ObservableObject {
         return "\(m):\(String(format: "%02d", s))"
     }
 
-    private func checkpointMinutesPerQuarter(
+    private func checkpointminutesPerPeriod(
         intensity: SubstitutionIntensity,
-        minutesPerQuarter: Int
+        minutesPerPeriod: Int
     ) -> Set<Int> {
-        // minuteInQuarter is 0...(minutesPerQuarter-1) AFTER your advance logic.
+        // minuteInQuarter is 0...(minutesPerPeriod-1) AFTER your advance logic.
         // With your current engine, checkpoint at 2 means "after 2 minutes played".
         switch intensity {
         case .frequent:
-            return [2, 4, 6, 8].filter { $0 < minutesPerQuarter }.asSet()
+            return [2, 4, 6, 8].filter { $0 < minutesPerPeriod }.asSet()
         case .balanced:
-            return [3, 6, 9].filter { $0 < minutesPerQuarter }.asSet()
+            return [3, 6, 9].filter { $0 < minutesPerPeriod }.asSet()
         case .infrequent:
-            return [5].filter { $0 < minutesPerQuarter }.asSet()
+            return [5].filter { $0 < minutesPerPeriod }.asSet()
         }
     }
 
     private func shouldTriggerCheckpoint(state: GameState) -> Bool {
         guard state.status == .normalGame else { return false }
-        let checkpoints = checkpointMinutesPerQuarter(
+        let checkpoints = checkpointminutesPerPeriod(
             intensity: state.intensity,
-            minutesPerQuarter: state.config.minutesPerQuarter
+            minutesPerPeriod: state.config.minutesPerPeriod
         )
         return checkpoints.contains(state.minuteInQuarter)
     }

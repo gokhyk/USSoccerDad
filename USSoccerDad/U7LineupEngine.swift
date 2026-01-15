@@ -11,14 +11,14 @@ import Foundation
 typealias PlayerID = UUID
 
 enum SubstitutionIntensity: String, Codable {
-    case frequent    // interval = minutesPerQuarter / 5
-    case balanced    // interval = minutesPerQuarter / 4
-    case infrequent  // interval = minutesPerQuarter / 3
+    case frequent    // interval = minutesPerPeriod / 5
+    case balanced    // interval = minutesPerPeriod / 4
+    case infrequent  // interval = minutesPerPeriod / 3
 }
 
 struct GameConfig: Codable, Equatable {
-    let minutesPerQuarter: Int       // e.g. 10
-    let quarters: Int                // e.g. 4
+    let minutesPerPeriod: Int       // e.g. 10
+    let periods: Int                // e.g. 4
     let playersOnField: Int          // e.g. 4
     let minPlayersToStart: Int       // e.g. 3
 }
@@ -80,9 +80,9 @@ struct GameState: Codable {
     var intensity: SubstitutionIntensity
     var status: GameStatus
 
-    var currentQuarter: Int          // 0 if not started / forfeit, else 1...quarters
-    var minuteInQuarter: Int         // 0...(minutesPerQuarter - 1)
-    var totalMinutesElapsed: Int     // 0...(minutesPerQuarter * quarters)
+    var currentQuarter: Int          // 0 if not started / forfeit, else 1...periods
+    var minuteInQuarter: Int         // 0...(minutesPerPeriod - 1)
+    var totalMinutesElapsed: Int     // 0...(minutesPerPeriod * periods)
 
     var players: [PlayerGameRuntime]
     var events: [LineupEvent]
@@ -270,7 +270,7 @@ struct DefaultU7LineupEngine: U7LineupEngine {
         
         
         // 3. End of quarter?
-        if state.minuteInQuarter == state.config.minutesPerQuarter {
+        if state.minuteInQuarter == state.config.minutesPerPeriod {
             handleQuarterEnd(&state)
         } else {
             // mid-quarter: only normal games have subs
@@ -299,7 +299,7 @@ struct DefaultU7LineupEngine: U7LineupEngine {
     // MARK: - Private helpers
     
     private func substitutionInterval(for state: GameState) -> Int {
-        let base = Double(state.config.minutesPerQuarter)
+        let base = Double(state.config.minutesPerPeriod)
         let raw: Double
         
         switch state.intensity {
@@ -447,7 +447,7 @@ struct DefaultU7LineupEngine: U7LineupEngine {
     }
 
     
-    func checkpointMinutesPerQuarter(intensity: SubstitutionIntensity, minutesPerQuarter: Int) -> Set<Int> {
+    func checkpointminutesPerPeriod(intensity: SubstitutionIntensity, minutesPerPeriod: Int) -> Set<Int> {
         switch intensity {
         case .frequent:   return [2,4,6,8]
         case .balanced:   return [3,6,9]
@@ -480,7 +480,7 @@ struct DefaultU7LineupEngine: U7LineupEngine {
         state.currentQuarter += 1
         state.minuteInQuarter = 0
         
-        if state.currentQuarter > state.config.quarters {
+        if state.currentQuarter > state.config.periods {
             state.status = .finished
         }
         
