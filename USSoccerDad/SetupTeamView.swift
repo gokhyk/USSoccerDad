@@ -44,6 +44,14 @@ struct SetupTeamView: View {
 
                 Toggle("Dedicated Goalkeeper", isOn: $hasDedicatedGoalkeeper)
             }
+            
+            Section {
+                Button(role: .destructive) {
+                    teamStore.clearTeam()
+                } label: {
+                    Text("Reset / Create New Team")
+                }
+            }
 
             Section {
                 Button(action: saveTeam) {

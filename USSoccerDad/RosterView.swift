@@ -103,7 +103,7 @@ struct RosterView: View {
             ForEach(vm.players) { player in
                 Button {
                     editingPlayer = player
-                    //isPresentingEditor = true
+                    
                 } label: {
                     HStack {
                         if let number = player.jerseyNumber {

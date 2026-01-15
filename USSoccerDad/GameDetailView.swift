@@ -58,10 +58,10 @@ struct GameDetailView: View {
                         )
                     }
 
-                    Section(header: Text("Notes")) {
-                        TextField("Notes", text: bindingOptionalString(\.notes), axis: .vertical)
-                            .lineLimit(3...8)
-                    }
+//                    Section(header: Text("Notes")) {
+//                        TextField("Notes", text: bindingOptionalString(\.notes), axis: .vertical)
+//                            .lineLimit(3...8)
+//                    }
 
                     Section {
                         Button("Save Changes") {

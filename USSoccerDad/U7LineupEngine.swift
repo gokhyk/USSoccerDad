@@ -90,27 +90,6 @@ struct GameState: Codable {
 
 // MARK: - Engine Protocol
 
-//protocol U7LineupEngine {
-//    func initializeGame(
-//        config: GameConfig,
-//        intensity: SubstitutionIntensity,
-//        roster: [PlayerSeasonSnapshot],
-//        availability: [PlayerAvailability]
-//    ) -> GameState
-//
-//    /// Advance the game by 1 minute. Returns any new events (subs, quarter breaks).
-//    func advanceOneMinute(
-//        state: inout GameState
-//    ) -> [LineupEvent]
-//
-//    /// Simulate the whole game (until finished or forfeit).
-//    func simulateFullGame(
-//        state: inout GameState
-//    ) -> GameState
-//    
-//    func markInjured(playerId: PlayerID, state: inout GameState)// -> [LineupEvent]
-//    func markRecovered(playerId: PlayerID, state: inout GameState)// -> [LineupEvent]
-//}
 
 protocol U7LineupEngine {
     func initializeGame(

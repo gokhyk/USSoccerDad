@@ -47,14 +47,6 @@ struct MainTeamView: View {
                 }
                 
             }
-            
-            Section {
-                Button(role: .destructive) {
-                    teamStore.clearTeam()
-                } label: {
-                    Text("Reset / Create New Team")
-                }
-            }
         }
         .navigationTitle("Team")
     }

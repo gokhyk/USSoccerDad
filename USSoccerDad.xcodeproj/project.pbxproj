@@ -29,33 +29,9 @@
 		948349CF2ECBC2E400E61E6A /* USSoccerDadUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = USSoccerDadUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		945A5BB82EF5B4D3000DFDD7 /* Exceptions for "USSoccerDad" folder in "USSoccerDad" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				GameDetailView.swift_old,
-			);
-			target = 948349B72ECBC2E200E61E6A /* USSoccerDad */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
-/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-		945A5BB92EF5B4D3000DFDD7 /* Exceptions for "USSoccerDad" folder in "Compile Sources" phase from "USSoccerDad" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			buildPhase = 948349B42ECBC2E200E61E6A /* Sources */;
-			membershipExceptions = (
-				GameDetailView.swift_old,
-			);
-		};
-/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		948349BA2ECBC2E200E61E6A /* USSoccerDad */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				945A5BB82EF5B4D3000DFDD7 /* Exceptions for "USSoccerDad" folder in "USSoccerDad" target */,
-				945A5BB92EF5B4D3000DFDD7 /* Exceptions for "USSoccerDad" folder in "Compile Sources" phase from "USSoccerDad" target */,
-			);
 			path = USSoccerDad;
 			sourceTree = "<group>";
 		};

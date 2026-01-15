@@ -53,10 +53,10 @@ struct AddEditGameView: View {
                         in: 3...11)
             }
 
-            Section(header: Text("Notes")) {
-                TextField("Notes", text: $notes, axis: .vertical)
-                    .lineLimit(1...4)
-            }
+//            Section(header: Text("Notes")) {
+//                TextField("Notes", text: $notes, axis: .vertical)
+//                    .lineLimit(1...4)
+//            }
 
             if showValidationError {
                 Section {
