@@ -9,7 +9,7 @@ import SwiftUI
 
 struct MainTeamView: View {
     @EnvironmentObject var teamStore: TeamStore
-    @EnvironmentObject var gameStore: GameStore
+    //@EnvironmentObject var gameStore: GameStore
     
     var team: TeamSettings
     
