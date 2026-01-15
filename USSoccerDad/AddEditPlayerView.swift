@@ -19,8 +19,8 @@ struct AddEditPlayerView: View {
     @State private var notes: String = ""
     
     @State private var canPlayGK: Bool = false
-    @State private var canPlayAttack: Bool = false
-    @State private var canPlayDefense: Bool = false
+    @State private var canPlayAttack: Bool = true
+    @State private var canPlayDefense: Bool = true
     
     @State private var minutesText: String = ""
 

@@ -37,6 +37,7 @@ struct SetupTeamView: View {
                 }
             }
 
+            
             Section(header: Text("Game Settings (auto-filled, but editable)")) {
                 Stepper("Players on Field: \(playersOnField)", value: $playersOnField, in: 3...11)
                 Stepper("Number of Periods: \(numberOfPeriods)", value: $numberOfPeriods, in: 1...6)
@@ -45,13 +46,6 @@ struct SetupTeamView: View {
                 Toggle("Dedicated Goalkeeper", isOn: $hasDedicatedGoalkeeper)
             }
             
-            Section {
-                Button(role: .destructive) {
-                    teamStore.clearTeam()
-                } label: {
-                    Text("Reset / Create New Team")
-                }
-            }
 
             Section {
                 Button(action: saveTeam) {

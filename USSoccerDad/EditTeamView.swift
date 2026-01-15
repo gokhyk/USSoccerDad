@@ -9,6 +9,7 @@
 import SwiftUI
 
 struct EditTeamView: View {
+    @EnvironmentObject var teamStore: TeamStore
     @State private var team: TeamSettings
     var onSave: (TeamSettings) -> Void
 
@@ -48,6 +49,16 @@ struct EditTeamView: View {
                         in: 5...60)
 
                 Toggle("Dedicated Goalkeeper", isOn: $team.hasDedicatedGoalkeeper)
+            }
+            
+
+            Section(header: Text("Reset Team")) {
+                Button(role: .destructive) {
+                    teamStore.clearTeam()
+                } label: {
+                    Label("Reset / Create New Team", systemImage: "trash")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
 
             if showValidationError {

@@ -70,8 +70,8 @@ final class RosterViewModel: ObservableObject {
             notes: nil,
             
             canPlayGK: false,
-            canPlayAttack: false,
-            canPlayDefense: false,
+            canPlayAttack: true,
+            canPlayDefense: true,
             
             totalMinutesPlayed: 0      // NEW (optional but explicit)
         )
