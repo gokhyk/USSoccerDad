@@ -46,8 +46,8 @@ struct GameDetailView: View {
                         TextField("Location", text: bindingOptionalString(\.location))
 
                         Stepper(
-                            "Minutes per Half: \(g.minutesPerHalf)",
-                            value: bindingInt(\.minutesPerHalf),
+                            "Minutes per Period: \(g.minutesPerPeriod)",
+                            value: bindingInt(\.minutesPerPeriod),
                             in: 5...60
                         )
 
@@ -148,7 +148,7 @@ struct GameDetailView: View {
         ev.startDate = game.date
 
         // Simple duration: 2 halves. (You can adjust later to add breaks.)
-        let durationMinutes = max(10, game.minutesPerHalf * 2)
+        let durationMinutes = max(10, game.minutesPerPeriod * 2)
         ev.endDate = game.date.addingTimeInterval(TimeInterval(durationMinutes * 60))
 
         // Location/notes

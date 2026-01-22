@@ -71,16 +71,10 @@ final class U7GameViewModel: ObservableObject {
     }
     
     func startGame(
+        config: GameConfig,
         intensity: SubstitutionIntensity,
         availableIds: Set<UUID>
-    ) {
-        let config = GameConfig(
-            minutesPerPeriod: 10,
-            periods: 4,
-            playersOnField: 4,
-            minPlayersToStart: 3
-        )
-        
+    ) {        
         let snapshots = players.seasonSnapshotsForLineup()
         let availability = players.availabilityList(availableIds: availableIds)
         

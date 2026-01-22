@@ -16,7 +16,7 @@ struct Game: Identifiable, Codable, Equatable {
     var date: Date
     var location: String?
 
-    var minutesPerHalf: Int
+    var minutesPerPeriod: Int
     var playersOnField: Int
     var notes: String?
 

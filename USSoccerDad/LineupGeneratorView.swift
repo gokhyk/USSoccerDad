@@ -42,7 +42,7 @@ struct LineupGeneratorView: View {
                 ProgressView("Loading players…")
             } else {
                 Form {
-                    Section("Substitution Style (U5/6/7)") {
+                    Section("Substitution Style TBD") {
                         Picker("Style", selection: $intensity) {
                             Text("Frequent").tag(SubstitutionIntensity.frequent)
                             Text("Balanced").tag(SubstitutionIntensity.balanced)
@@ -73,7 +73,16 @@ struct LineupGeneratorView: View {
 
                     Section {
                         Button("Start Game") {
-                            vm.startGame(intensity: intensity, availableIds: availableIds)
+                            let playersonField = gameStore.game(withId: gameId)?.playersOnField ?? team.playersOnField
+                            let minutesPerPeriod = gameStore.game(withId: gameId)?.minutesPerPeriod ?? 25
+                            let config = GameConfig(
+                                minutesPerPeriod: minutesPerPeriod,
+                                periods: 2,
+                                playersOnField: playersonField,
+                                minPlayersToStart: min(playersonField, 3)
+                            )
+                            
+                            vm.startGame(config: config, intensity: intensity, availableIds: availableIds)
                             showGameView = true
                         }
                         .disabled(availableIds.isEmpty)
@@ -89,7 +98,7 @@ struct LineupGeneratorView: View {
             }
             .hidden()
         }
-        .navigationTitle("Lineup (U5/6/7)")
+        .navigationTitle("Lineup U? TBD")
         .task {
             await load()
             

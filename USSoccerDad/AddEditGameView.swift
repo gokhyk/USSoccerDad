@@ -21,7 +21,7 @@ struct AddEditGameView: View {
     @State private var location: String = ""
     @State private var notes: String = ""
     @State private var date: Date = Date()
-    @State private var minutesPerHalf: Int = 25
+    @State private var minutesPerPeriod: Int = 25
     @State private var playersOnField: Int = 7
     @State private var showValidationError = false
 
@@ -44,8 +44,8 @@ struct AddEditGameView: View {
             }
 
             Section(header: Text("Game Settings")) {
-                Stepper("Minutes per Half: \(minutesPerHalf)",
-                        value: $minutesPerHalf,
+                Stepper("Minutes per Half: \(minutesPerPeriod)",
+                        value: $minutesPerPeriod,
                         in: 5...60)
 
                 Stepper("Players on Field: \(playersOnField)",
@@ -85,7 +85,7 @@ struct AddEditGameView: View {
             location = game.location ?? ""
             notes = game.notes ?? ""
             date = game.date
-            minutesPerHalf = game.minutesPerHalf
+            minutesPerPeriod = game.minutesPerPeriod
             playersOnField = game.playersOnField
         }
     }
@@ -102,7 +102,7 @@ struct AddEditGameView: View {
         game.location = location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : location
         game.notes = notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes
         game.date = date
-        game.minutesPerHalf = minutesPerHalf
+        game.minutesPerPeriod = minutesPerPeriod
         game.playersOnField = playersOnField
 
         onSave(game)
