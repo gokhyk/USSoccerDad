@@ -87,19 +87,7 @@ final class U7GameViewModel: ObservableObject {
         
         self.gameState = state
     }
-//    
-//    func advanceOneMinute() {
-//        guard var state = gameState else { return }
-//        _ = engine.advanceOneMinute(state: &state)
-//        gameState = state
-//    }
-//    
-//    func simulateFullGame() {
-//        guard var state = gameState else { return }
-//        let final = engine.simulateFullGame(state: &state)
-//        gameState = final
-//    }
-//    
+
     func applyGameMinutesToPlayers() async {
         guard let state = gameState, state.status == .finished else { return }
         var updatedPlayers = players

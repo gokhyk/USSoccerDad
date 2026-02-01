@@ -13,9 +13,7 @@ import SwiftUI
 struct U7GameView: View {
     @ObservedObject var vm: U7GameViewModel
 
-
     @State private var timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-
 
     var body: some View {
         VStack(spacing: 16) {
@@ -26,8 +24,6 @@ struct U7GameView: View {
                         .font(.headline)
                 }
 
-
-
                 Picker("Speed", selection: $vm.speedMultiplier) {
                     Text("1×").tag(1)
                     Text("5×").tag(5)
@@ -36,9 +32,6 @@ struct U7GameView: View {
                 .pickerStyle(.segmented)
                 .disabled(!vm.isRunning)   // optional
 
-                    
-
-                
                 // 🔴 PRIORITY: pending substitution
                 if let p = vm.pendingSub {
                     pendingSubstitutionView(p)
@@ -55,7 +48,6 @@ struct U7GameView: View {
                     }
                     .buttonStyle(.bordered)
                 }
-
 
                 Divider()
 
@@ -94,36 +86,7 @@ struct U7GameView: View {
 
                 Divider()
 
-//                ScrollView {
-//                    VStack(alignment: .leading, spacing: 8) {
-//                        Text("Events")
-//                            .font(.headline)
-////                        ForEach(Array(state.events.enumerated()), id: \.offset) { _, event in
-////                            Text(describe(event: event))
-////                                .font(.caption)
-////                        }
-//                        ForEach(Array(state.events.enumerated()), id: \.offset) { _, event in
-//                            Text(describe(event: event, in: state))
-//                                .font(.caption)
-//                        }
-//
-//                    }
-//                    .frame(maxWidth: .infinity, alignment: .leading)
-//                }
-
                 Spacer()
-//
-//                HStack {
-//                    Button("Advance 1 Minute") {
-//                        vm.advanceOneMinute()
-//                    }
-//                    .buttonStyle(.borderedProminent)
-//
-//                    Button("Simulate Full Game") {
-//                        vm.simulateFullGame()
-//                    }
-//                    .buttonStyle(.bordered)
-//                }
 
                 if state.status == .finished {
                     Button("Apply Minutes to Season") {
@@ -146,8 +109,8 @@ struct U7GameView: View {
             vm.tickOneSecond()
         }
 
-        //.padding()
-        //.navigationTitle("U5/6/7 Game")
+        .padding()
+        .navigationTitle("U5/6/7 Game")
     }
 
     private func header(state: GameState) -> some View {
@@ -159,17 +122,6 @@ struct U7GameView: View {
         }
         .font(.subheadline)
     }
-
-//    private func describe(event: LineupEvent) -> String {
-//        switch event.type {
-//        case .initialLineup:
-//            return "0': Initial lineup (\(event.playersOnField.count) players)"
-//        case .quarterBreak:
-//            return "\(event.timeMinute)': Quarter break"
-//        case .substitution:
-//            return "\(event.timeMinute)': Sub – in: \(event.playersIn.count), out: \(event.playersOut.count)"
-//        }
-//    }
     
     private func describe(event: LineupEvent, in state: GameState) -> String {
         let timeLabel = "\(event.timeMinute)'"
@@ -242,7 +194,6 @@ struct U7GameView: View {
         // You can tweak this string however you like
         "c:\(p.continuousMinutesThisGame) g:\(p.minutesThisGame) s:\(p.seasonMinutesBeforeGame)"
     }
-
     
     private func name(_ id: PlayerID) -> String {
         vm.gameState?
@@ -280,5 +231,4 @@ struct U7GameView: View {
         }
         .padding()
     }
-
 }

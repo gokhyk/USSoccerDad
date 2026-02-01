@@ -16,6 +16,7 @@ struct Game: Identifiable, Codable, Equatable {
     var date: Date
     var location: String?
 
+    //var numberOfPeriods: Int
     var minutesPerPeriod: Int
     var playersOnField: Int
     var notes: String?
@@ -29,6 +30,7 @@ enum RunPhase {
     case preKickoff          // show starters, waiting for Start button
     case running             // game clock running
     case pendingSubstitution // countdown shown, waiting for OK
+    case halfTime
     case paused
     case finished
 }

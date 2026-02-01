@@ -378,41 +378,7 @@ struct DefaultU7LineupEngine: U7LineupEngine {
         return Array(field.prefix(N)).map { $0.id }
     }
     
-//    private func applySubstitution(_ state: inout GameState) {
-//        guard state.status == .normalGame else { return }
-//        
-//        let N = playersToSubstituteCount(state)
-//        if N == 0 { return }
-//        
-//        let inIDs = selectPlayersToComeIn(state, count: N)
-//        let outIDs = selectPlayersToGoOut(state, count: N)
-//        
-//        // Swap states
-//        for i in state.players.indices {
-//            let id = state.players[i].id
-//            if inIDs.contains(id) {
-//                state.players[i].isOnField = true
-//                // continuousMinutes continues from next minute
-//            } else if outIDs.contains(id) {
-//                state.players[i].isOnField = false
-//                state.players[i].continuousMinutesThisGame = 0
-//            }
-//        }
-//        
-//        let fieldIDs = state.players
-//            .filter { $0.isOnField }
-//            .map { $0.id }
-//        
-//        let event = LineupEvent(
-//            timeMinute: state.totalMinutesElapsed,
-//            type: .substitution,
-//            playersOnField: fieldIDs,
-//            playersIn: inIDs,
-//            playersOut: outIDs
-//        )
-//        state.events.append(event)
-//    }
-//    
+
     @discardableResult
     func applySubstitution(
         state: inout GameState,
@@ -488,15 +454,7 @@ struct DefaultU7LineupEngine: U7LineupEngine {
     }
     
     private func handleSubstitutionCheckpointIfNeeded(_ state: inout GameState) {
-//        guard state.status == .normalGame else { return }
-//        
-//        let interval = substitutionInterval(for: state)
-//        guard interval > 0 else { return }
-//        
-//        // e.g. interval 2 -> checkpoints at minuteInQuarter 2, 4, 6, 8
-//        if state.minuteInQuarter % interval == 0 {
-//            applySubstitution(&state)
-//        }
+
     }
 
     @discardableResult
@@ -570,15 +528,3 @@ struct DefaultU7LineupEngine: U7LineupEngine {
     
     
 }
-
-//
-//import Foundation
-//
-//func pickStarters(players: [PlayerGameRuntime], playersOnField: Int) -> [PlayerGameRuntime] {
-//    let available = players.filter { $0.isAvailable }
-//
-//    // Your rule: least season minutes gets priority
-//    let sorted = available.sorted { $0.seasonMinutesBeforeGame < $1.seasonMinutesBeforeGame }
-//
-//    return Array(sorted.prefix(playersOnField))
-//}

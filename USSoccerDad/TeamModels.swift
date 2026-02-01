@@ -1,6 +1,7 @@
 import Foundation
 
 enum AgeGroup: String, CaseIterable, Identifiable, Codable {
+    case u5 = "U5"
     case u6 = "U6"
     case u7 = "U7"
     case u8 = "U8"
@@ -36,7 +37,7 @@ extension TeamSettings {
     static func defaults(for ageGroup: AgeGroup, name: String = "") -> TeamSettings {
         // You can tweak these rules however you like
         switch ageGroup {
-        case .u6, .u7:
+        case .u5, .u6, .u7:
             return TeamSettings(
                 id: UUID(),
                 name: name,
