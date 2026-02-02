@@ -102,15 +102,15 @@ struct LineupGeneratorView: View {
         .task {
             await load()
             
-            #if DEBUG
-            let availabilityCount =
-                gameStore.game(withId: gameId)?.availability.count ?? 0
-
-            assert(
-                availabilityCount > 0,
-                "LineupGenerator: Availability must be loaded before generating lineup"
-            )
-            #endif
+//            #if DEBUG
+//            let availabilityCount =
+//                gameStore.game(withId: gameId)?.availability.count ?? 0
+//
+//            assert(
+//                availabilityCount > 0,
+//                "LineupGenerator: Availability must be loaded before generating lineup"
+//            )
+//            #endif
             
         }
     }

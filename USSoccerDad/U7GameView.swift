@@ -202,13 +202,21 @@ struct U7GameView: View {
             .name ?? "?"
     }
 
+    func formatCountdownSeconds(_ seconds: Int) -> String {
+        let sign = seconds < 0 ? "-" : ""
+        let s = abs(seconds)
+        let m = s / 60
+        let r = s % 60
+        return "\(sign)\(m):" + String(format: "%02d", r)
+    }
+
     private func pendingSubstitutionView(_ p: PendingSubstitution) -> some View {
         VStack(spacing: 16) {
 
             Text("Substitution in")
                 .font(.headline)
 
-            Text("\(p.secondsRemaining)s")
+            Text(formatCountdownSeconds(p.secondsRemaining))
                 .font(.largeTitle)
                 .foregroundStyle(p.secondsRemaining <= 15 ? .red : .primary)
 

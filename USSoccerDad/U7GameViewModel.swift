@@ -40,6 +40,9 @@ final class U7GameViewModel: ObservableObject {
     @Published var pendingSub: PendingSubstitution? = nil
 
     @Published var speedMultiplier: Int = 1   // 1, 5, 10
+    
+    @Published var autoApplyWhenCountdownHitsZero: Bool = false
+
 
     
     let teamId: UUID
@@ -152,38 +155,83 @@ final class U7GameViewModel: ObservableObject {
 
         let delta = max(1, speedMultiplier)
 
-        // ✅ Game clock always runs
-        let oldSeconds = gameClockSeconds
-        gameClockSeconds += delta
-
-        // ✅ Countdown also runs (and runs faster when delta > 1)
-        if var p = pendingSub {
-            p.secondsRemaining = max(0, p.secondsRemaining - delta)
-            pendingSub = p
-
-            // ✅ IMPORTANT: while countdown is active, we do NOT advance the engine minutes,
-            // because lineup changes must wait for coach OK.
+        // ---- Stop at end of period/half (clamp) ----
+        let periodDurationSec = state.config.minutesPerPeriod * 60
+        if gameClockSeconds >= periodDurationSec {
+            gameClockSeconds = periodDurationSec
+            isRunning = false
+            gameState = state
             return
         }
 
-        // 🟢 Only when not in countdown: advance engine minutes on minute boundaries
+        // ---- Advance wall clock seconds (clamped) ----
+        let oldSeconds = gameClockSeconds
+        let newSeconds = min(oldSeconds + delta, periodDurationSec)
+        let actualDelta = newSeconds - oldSeconds
+        gameClockSeconds = newSeconds
+        
+        // ---- Per-second playtime stats ----
+        if actualDelta > 0 {
+            for i in state.players.indices {
+                if state.players[i].isOnField {
+                    state.players[i].secondsPlayedThisGame += actualDelta
+                    state.players[i].continuousSecondsPlayedThisGame += actualDelta
+                }
+            }
+        }
+        
+
+
+        // ---- Countdown handling (DO NOT return; do not freeze engine) ----
+        if var p = pendingSub {
+            // If auto-apply is OFF, let it go negative.
+            // If auto-apply is ON, apply when it crosses <= 0.
+            p.secondsRemaining -= actualDelta
+
+            if autoApplyWhenCountdownHitsZero, p.secondsRemaining <= 0 {
+                // Apply automatically at the moment we hit/passed zero.
+                engine.applySubstitution(
+                    state: &state,
+                    inIDs: p.inIDs,
+                    outIDs: p.outIDs,
+                    timeMinute: state.totalMinutesElapsed
+                )
+                pendingSub = nil
+            } else {
+                pendingSub = p
+            }
+        }
+
+        // ---- Advance engine on minute boundaries (even during pendingSub) ----
         let oldMinute = oldSeconds / 60
-        let newMinute = gameClockSeconds / 60
+        let newMinute = newSeconds / 60
         let minutesToAdvance = newMinute - oldMinute
 
         if minutesToAdvance > 0 {
             for _ in 0..<minutesToAdvance {
                 _ = engine.advanceOneMinute(state: &state)
-                gameState = state
 
-                // If checkpoint minute hit, start countdown and stop advancing further
-                if shouldTriggerCheckpoint(state: state) {
+                // Only start a new pending sub if none is pending already
+                if pendingSub == nil, shouldTriggerCheckpoint(state: state) {
                     startPendingSubstitution(state: state)
-                    break
                 }
             }
         }
+
+        // ---- Stop at end (in case we hit exactly) ----
+        if gameClockSeconds >= periodDurationSec {
+            isRunning = false
+            // keep pendingSub as-is so coach can still hit OK if desired
+        }
+
+        for i in state.players.indices {
+            state.players[i].minutesThisGame = state.players[i].secondsPlayedThisGame / 60
+            state.players[i].continuousMinutesThisGame = state.players[i].continuousSecondsPlayedThisGame / 60
+        }
+
+        gameState = state
     }
+
 
 
     func confirmSubstitutionOK() {

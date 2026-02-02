@@ -48,6 +48,10 @@ struct PlayerGameRuntime: Identifiable, Codable {
     var isOnField: Bool
     var minutesThisGame: Int
     var continuousMinutesThisGame: Int
+
+    var secondsPlayedThisGame: Int = 0
+    var continuousSecondsPlayedThisGame: Int = 0
+
     
 }
 
@@ -259,8 +263,8 @@ struct DefaultU7LineupEngine: U7LineupEngine {
         // 1. Update per-player minutes
         for i in state.players.indices {
             if state.players[i].isOnField {
-                state.players[i].minutesThisGame += 1
-                state.players[i].continuousMinutesThisGame += 1
+                state.players[i].minutesThisGame = state.players[i].secondsPlayedThisGame / 60
+                state.players[i].continuousMinutesThisGame = state.players[i].continuousSecondsPlayedThisGame / 60
             }
         }
         
@@ -311,8 +315,9 @@ struct DefaultU7LineupEngine: U7LineupEngine {
             raw = base / 3.0
         }
         
-        let rounded = Int((raw).rounded())
-        return max(1, rounded)
+        let interval = Int(floor(raw))
+        return max(1, interval)
+
     }
     
     private func benchCount(_ state: GameState) -> Int {
@@ -340,39 +345,43 @@ struct DefaultU7LineupEngine: U7LineupEngine {
     }
     
     private func selectPlayersToComeIn(_ state: GameState, count N: Int) -> [PlayerID] {
+        let target = targetSecondsSoFar(state)
+        
         var bench = state.players
             .filter { $0.isAvailable && !$0.isInjured && !$0.isOnField }
             .shuffled() // random tie-breaker
         
         bench.sort { lhs, rhs in
-            if lhs.minutesThisGame != rhs.minutesThisGame {
-                return lhs.minutesThisGame < rhs.minutesThisGame
+            
+            let e1 = Double(lhs.secondsPlayedThisGame) - target
+            let e2 = Double(rhs.secondsPlayedThisGame) - target
+            
+            if e1 != e2 {
+                return e1 < e2
             }
-            if lhs.seasonMinutesBeforeGame != rhs.seasonMinutesBeforeGame {
-                return lhs.seasonMinutesBeforeGame < rhs.seasonMinutesBeforeGame
-            }
-            return false
+            return lhs.seasonMinutesBeforeGame < rhs.seasonMinutesBeforeGame
         }
         
         return Array(bench.prefix(N)).map { $0.id }
     }
     
     private func selectPlayersToGoOut(_ state: GameState, count N: Int) -> [PlayerID] {
+        
+        let target = targetSecondsSoFar(state)
+        
         var field = state.players
             .filter { $0.isAvailable && !$0.isInjured  && $0.isOnField }
             .shuffled() // random tie-breaker for perfect ties
         
         field.sort { lhs, rhs in
-            if lhs.continuousMinutesThisGame != rhs.continuousMinutesThisGame {
-                return lhs.continuousMinutesThisGame > rhs.continuousMinutesThisGame
+            let e1 = Double(lhs.secondsPlayedThisGame) - target
+            let e2 = Double(rhs.secondsPlayedThisGame) - target
+            if e1 != e2 { return e1 > e2 } // more positive = more overplayed
+            // tie-breaker: longer continuous stint goes out first
+            if lhs.continuousSecondsPlayedThisGame != rhs.continuousSecondsPlayedThisGame {
+                return lhs.continuousSecondsPlayedThisGame > rhs.continuousSecondsPlayedThisGame
             }
-            if lhs.minutesThisGame != rhs.minutesThisGame {
-                return lhs.minutesThisGame > rhs.minutesThisGame
-            }
-            if lhs.seasonMinutesBeforeGame != rhs.seasonMinutesBeforeGame {
-                return lhs.seasonMinutesBeforeGame > rhs.seasonMinutesBeforeGame
-            }
-            return false
+            return lhs.seasonMinutesBeforeGame > rhs.seasonMinutesBeforeGame
         }
         
         return Array(field.prefix(N)).map { $0.id }
@@ -391,10 +400,16 @@ struct DefaultU7LineupEngine: U7LineupEngine {
 
         for i in state.players.indices {
             let id = state.players[i].id
+
             if inIDs.contains(id) {
                 state.players[i].isOnField = true
+                // entering: start a new "stint"
+                state.players[i].continuousSecondsPlayedThisGame = 0
+                state.players[i].continuousMinutesThisGame = 0  // optional; keep if UI expects it
             } else if outIDs.contains(id) {
                 state.players[i].isOnField = false
+                // leaving: end stint
+                state.players[i].continuousSecondsPlayedThisGame = 0
                 state.players[i].continuousMinutesThisGame = 0
             }
         }
@@ -440,6 +455,7 @@ struct DefaultU7LineupEngine: U7LineupEngine {
         // Everyone gets a "rest" -> reset continuous minutes
         for i in state.players.indices {
             state.players[i].continuousMinutesThisGame = 0
+            state.players[i].continuousSecondsPlayedThisGame = 0
         }
         
         // Move to next quarter or finish
@@ -448,8 +464,22 @@ struct DefaultU7LineupEngine: U7LineupEngine {
         
         if state.currentQuarter > state.config.periods {
             state.status = .finished
+            return
         }
-        
+        // ✅ Start-of-second-half fairness rebalance
+        if state.currentQuarter == secondHalfStartQuarterIndex(state) {
+            rebalanceOnFieldForFairness(&state)
+
+            // Optional: log it as an event so you can see it in your timeline
+            let newFieldIDs = state.players.filter { $0.isOnField }.map { $0.id }
+            let event = LineupEvent(
+                timeMinute: state.totalMinutesElapsed,
+                type: .substitution,              // or add a new .halfStartRebalance if you want
+                playersOnField: newFieldIDs,
+                playersIn: [], playersOut: []     // or compute diffs if you care
+            )
+            state.events.append(event)
+        }
 
     }
     
@@ -523,6 +553,52 @@ struct DefaultU7LineupEngine: U7LineupEngine {
         let inIDs = selectPlayersToComeIn(state, count: N)
         let outIDs = selectPlayersToGoOut(state, count: N)
         return (inIDs, outIDs)
+    }
+
+    private func rebalanceOnFieldForFairness(_ state: inout GameState) {
+        // Only consider eligible players
+        var eligible = state.players.enumerated()
+            .filter { $0.element.isAvailable && !$0.element.isInjured }
+
+        guard eligible.count >= state.config.minPlayersToStart else { return }
+
+        // Sort by least total seconds played (primary fairness lever)
+        eligible.sort { a, b in
+            if a.element.secondsPlayedThisGame != b.element.secondsPlayedThisGame {
+                return a.element.secondsPlayedThisGame < b.element.secondsPlayedThisGame
+            }
+            // tie-breaker: lower season minutes gets preference
+            return a.element.seasonMinutesBeforeGame < b.element.seasonMinutesBeforeGame
+        }
+
+        let onFieldCount = min(state.config.playersOnField, eligible.count)
+        let onFieldSet = Set(eligible.prefix(onFieldCount).map { $0.element.id })
+
+        for i in state.players.indices {
+            let shouldBeOn = onFieldSet.contains(state.players[i].id)
+            if state.players[i].isOnField != shouldBeOn {
+                state.players[i].isOnField = shouldBeOn
+                state.players[i].continuousSecondsPlayedThisGame = 0
+                state.players[i].continuousMinutesThisGame = 0
+            }
+        }
+    }
+
+    private func secondHalfStartQuarterIndex(_ state: GameState) -> Int {
+        // periods=2 => 2nd half starts at 2
+        // periods=4 => 2nd half starts at 3
+        (state.config.periods / 2) + 1
+    }
+
+    private func targetSecondsSoFar(_ state: GameState) -> Double {
+        let eligibleCount = state.players.filter { $0.isAvailable && !$0.isInjured }.count
+        guard eligibleCount > 0 else { return 0 }
+
+        // This is "player-seconds consumed" / number of players
+        // elapsedSec should come from your VM clock or derived from totalMinutesElapsed * 60 + secondsIntoMinute (if you add that later)
+        let elapsedSec = Double(state.totalMinutesElapsed * 60)   // coarse; better if you add secondsIntoMinute
+        let totalPlayerSeconds = elapsedSec * Double(state.config.playersOnField)
+        return totalPlayerSeconds / Double(eligibleCount)
     }
 
     
