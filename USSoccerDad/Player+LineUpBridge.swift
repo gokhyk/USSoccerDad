@@ -24,14 +24,14 @@ extension Player {
     }
 }
 
-extension Array where Element == Player {
-    func seasonSnapshotsForLineup() -> [PlayerSeasonSnapshot] {
-        map { $0.seasonSnapshotForLineup }
-    }
-
-    func availabilityList(availableIds: Set<UUID>) -> [PlayerAvailability] {
-        map { player in
-            player.availability(isAvailable: availableIds.contains(player.id))
-        }
-    }
-}
+//extension Array where Element == Player {
+//    func seasonSnapshotsForLineup() -> [PlayerSeasonSnapshot] {
+//        map { $0.seasonSnapshotForLineup }
+//    }
+//
+//    func availabilityList(availableIds: Set<UUID>) -> [PlayerAvailability] {
+//        map { player in
+//            player.availability(isAvailable: availableIds.contains(player.id))
+//        }
+//    }
+//}

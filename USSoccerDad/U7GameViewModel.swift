@@ -2,31 +2,23 @@
 //  U7GameViewModel.swift
 //  USSoccerDad
 //
-//  Created by Ayse Kula on 12/1/25.
+//  Rewritten with proper quarter handling
 //
-
-struct PendingSubstitution {
-    let scheduledAtMinute: Int
-    let countdownSeconds: Int          // e.g., 60
-    var secondsRemaining: Int
-    let inIDs: [PlayerID]
-    let outIDs: [PlayerID]
-    let pairs: [(in: PlayerID, out: PlayerID)] // “in replaces out”
-}
 
 import Foundation
 
-struct EndOfGameReport {
-    struct LineItem: Identifiable {
-        let id: UUID
-        let name: String
-        let minutes: Int
-        let seasonBefore: Int
+struct PendingSubstitution {
+    let scheduledAtSecond: Int
+    var secondsRemaining: Int
+    let pairs: [(in: PlayerID, out: PlayerID)]
+    
+    var inIDs: [PlayerID] {
+        pairs.map { $0.in }
     }
-
-    let minutesPlayed: [LineItem]
-    let notAvailable: [LineItem]
-    let injured: [LineItem]   // you’ll fill this once you track injuries
+    
+    var outIDs: [PlayerID] {
+        pairs.map { $0.out }
+    }
 }
 
 @MainActor
@@ -38,16 +30,14 @@ final class U7GameViewModel: ObservableObject {
     @Published var isPaused: Bool = false
     @Published var gameClockSeconds: Int = 0
     @Published var pendingSub: PendingSubstitution? = nil
-
-    @Published var speedMultiplier: Int = 1   // 1, 5, 10
-    
-    @Published var autoApplyWhenCountdownHitsZero: Bool = false
-
-
+    @Published var speedMultiplier: Int = 1
     
     let teamId: UUID
     private let playerRepo: PlayerRepository
     private let engine: U7LineupEngine
+    
+    // Constants
+    private let substitutionWarningSeconds = 60  // Warn 60 seconds before sub
     
     init(
         teamId: UUID,
@@ -58,6 +48,8 @@ final class U7GameViewModel: ObservableObject {
         self.playerRepo = playerRepo
         self.engine = engine
     }
+    
+    // MARK: - Setup
     
     func loadPlayers() async {
         do {
@@ -77,7 +69,7 @@ final class U7GameViewModel: ObservableObject {
         config: GameConfig,
         intensity: SubstitutionIntensity,
         availableIds: Set<UUID>
-    ) {        
+    ) {
         let snapshots = players.seasonSnapshotsForLineup()
         let availability = players.availabilityList(availableIds: availableIds)
         
@@ -89,223 +81,239 @@ final class U7GameViewModel: ObservableObject {
         )
         
         self.gameState = state
-    }
-
-    func applyGameMinutesToPlayers() async {
-        guard let state = gameState, state.status == .finished else { return }
-        var updatedPlayers = players
-
-        let totalGameMinutes = state.config.playersOnField * (state.config.minutesPerPeriod * state.config.periods)
-        let availableCount = state.players.filter { $0.isAvailable && !$0.isInjured }.count
-        let absentCredit = availableCount > 0
-            ? Int((Double(totalGameMinutes) / Double(availableCount)).rounded())
-            : 0
-
-        for i in updatedPlayers.indices {
-            let id = updatedPlayers[i].id
-
-            if let runtime = state.players.first(where: { $0.id == id }) {
-                let addMinutes: Int
-
-                if runtime.isAvailable {
-                    addMinutes = runtime.minutesThisGame
-                } else {
-                    addMinutes = absentCredit
-                }
-
-                if addMinutes > 0 {
-                    updatedPlayers[i].totalMinutesPlayed += addMinutes
-                    do {
-                        try await playerRepo.upsert(player: updatedPlayers[i])
-                    } catch {
-                        print("Failed to upsert player \(updatedPlayers[i].name): \(error)")
-                    }
-                }
-            }
-        }
-        self.players = updatedPlayers
+        self.gameClockSeconds = 0
+        self.isRunning = false
+        self.isPaused = false
+        self.pendingSub = nil
     }
     
-    func markInjured(_ id: PlayerID) {
-        guard var state = gameState else { return }
-        // engine needs to be `var` or the methods above should be non-mutating; easiest is to make engine var in VM
-        // or make markInjured/markRecovered non-mutating helpers inside the struct.
-        //(engine as? DefaultU7LineupEngine)?.markInjured(playerId: id, state: &state)
-        _ = engine.markInjured(playerId: id, state: &state)
-        gameState = state
-    }
-
-    func markRecovered(_ id: PlayerID) {
-        guard var state = gameState else { return }
-        //(engine as? DefaultU7LineupEngine)?.markRecovered(playerId: id, state: &state)
-        _ = engine.markRecovered(playerId: id, state: &state)
-        gameState = state
-    }
-
+    // MARK: - Game Control
+    
     func startWhistle() {
+        guard gameState != nil else { return }
+        
         isRunning = true
         isPaused = false
-        gameClockSeconds = 0
         pendingSub = nil
     }
-
+    
+    func togglePause() {
+        isPaused.toggle()
+    }
+    
+    func endCurrentQuarter() {
+        guard var state = gameState else { return }
+        
+        // Stop the clock
+        isRunning = false
+        pendingSub = nil
+        
+        // Clear any pending subs
+        gameClockSeconds = 0
+        
+        // Log the quarter break and advance
+        engine.advanceToNextQuarter(state: &state)
+        
+        // The engine handles setting .finished if needed
+        
+        gameState = state
+    }
+    
+    // MARK: - Time Management
+    
     func tickOneSecond() {
         guard isRunning, !isPaused else { return }
         guard var state = gameState else { return }
-
-        let delta = max(1, speedMultiplier)
-
-        // ---- Stop at end of period/half (clamp) ----
-        let periodDurationSec = state.config.minutesPerPeriod * 60
-        if gameClockSeconds >= periodDurationSec {
-            gameClockSeconds = periodDurationSec
+        guard state.status == .normalGame || state.status == .noSubGame else { return }
+        
+        let delta = speedMultiplier
+        
+        // Check if we've reached end of quarter
+        let quarterDurationSeconds = state.config.minutesPerPeriod * 60
+        if gameClockSeconds >= quarterDurationSeconds {
+            gameClockSeconds = quarterDurationSeconds
             isRunning = false
             gameState = state
             return
         }
-
-        // ---- Advance wall clock seconds (clamped) ----
+        
+        // Advance clock (clamped to quarter duration)
         let oldSeconds = gameClockSeconds
-        let newSeconds = min(oldSeconds + delta, periodDurationSec)
+        let newSeconds = min(oldSeconds + delta, quarterDurationSeconds)
         let actualDelta = newSeconds - oldSeconds
         gameClockSeconds = newSeconds
         
-        // ---- Per-second playtime stats ----
-        if actualDelta > 0 {
-            for i in state.players.indices {
-                if state.players[i].isOnField {
-                    state.players[i].secondsPlayedThisGame += actualDelta
-                    state.players[i].continuousSecondsPlayedThisGame += actualDelta
+        // Update game state seconds
+        state.totalSecondsElapsed += actualDelta
+        
+        // Update player playing time
+        for i in state.players.indices {
+            if state.players[i].isOnField {
+                state.players[i].secondsPlayedThisGame += actualDelta
+                state.players[i].continuousSecondsPlayedThisGame += actualDelta
+            }
+        }
+        
+        // Handle pending substitution countdown
+        if var pending = pendingSub {
+            pending.secondsRemaining -= actualDelta
+            pendingSub = pending
+        }
+        
+        // Check if it's time to schedule a substitution
+        // BUT NOT if we're at or near quarter end
+        let timeRemainingInQuarter = quarterDurationSeconds - gameClockSeconds
+        
+        if state.status == .normalGame && pendingSub == nil && timeRemainingInQuarter > substitutionWarningSeconds {
+            if state.totalSecondsElapsed >= state.nextSubAtSecond - substitutionWarningSeconds {
+                scheduleSubstitution(state: state)
+            }
+        }
+        
+        // Stop at end of quarter
+        if gameClockSeconds >= quarterDurationSeconds {
+            isRunning = false
+        }
+        
+        gameState = state
+    }
+    
+    // MARK: - Substitutions
+    
+    private func scheduleSubstitution(state: GameState) {
+        guard pendingSub == nil else { return }
+        guard state.status == .normalGame else { return }
+        
+        let proposal = engine.proposeSubstitution(state: state)
+        guard !proposal.inIDs.isEmpty else { return }
+        
+        let pairs = zip(proposal.inIDs, proposal.outIDs).map { (in: $0, out: $1) }
+        
+        let timeUntilSub = state.nextSubAtSecond - state.totalSecondsElapsed
+        
+        pendingSub = PendingSubstitution(
+            scheduledAtSecond: state.nextSubAtSecond,
+            secondsRemaining: timeUntilSub,
+            pairs: pairs
+        )
+    }
+    
+    func confirmSubstitution() {
+        guard var state = gameState else { return }
+        guard let pending = pendingSub else { return }
+        
+        engine.applySubstitution(
+            state: &state,
+            inIDs: pending.inIDs,
+            outIDs: pending.outIDs
+        )
+        
+        gameState = state
+        pendingSub = nil
+    }
+    
+    // MARK: - Injury Management
+    
+    func markInjured(_ playerId: PlayerID) {
+        guard var state = gameState else { return }
+        engine.markInjured(playerId: playerId, state: &state)
+        gameState = state
+    }
+    
+    func markRecovered(_ playerId: PlayerID) {
+        guard var state = gameState else { return }
+        engine.markRecovered(playerId: playerId, state: &state)
+        gameState = state
+    }
+    
+    // MARK: - Game Completion
+    
+    func applyGameMinutesToPlayers() async {
+        guard let state = gameState, state.status == .finished else { return }
+        
+        var updatedPlayers = players
+        
+        // Calculate absent player credit
+        let totalGameSeconds = state.config.playersOnField * 
+                               state.config.minutesPerPeriod * 
+                               state.config.periods * 60
+        let eligibleCount = state.players.filter { $0.isAvailable && !$0.isInjured }.count
+        let absentCreditMinutes = eligibleCount > 0 
+            ? (totalGameSeconds / 60) / eligibleCount 
+            : 0
+        
+        for i in updatedPlayers.indices {
+            let playerId = updatedPlayers[i].id
+            
+            if let runtime = state.players.first(where: { $0.id == playerId }) {
+                let minutesToAdd: Int
+                
+                if runtime.isAvailable {
+                    minutesToAdd = runtime.minutesThisGame
+                } else {
+                    minutesToAdd = absentCreditMinutes
+                }
+                
+                if minutesToAdd > 0 {
+                    updatedPlayers[i].totalMinutesPlayed += minutesToAdd
+                    
+                    do {
+                        try await playerRepo.upsert(player: updatedPlayers[i])
+                    } catch {
+                        print("Failed to update player \(updatedPlayers[i].name): \(error)")
+                    }
                 }
             }
         }
         
-
-
-        // ---- Countdown handling (DO NOT return; do not freeze engine) ----
-        if var p = pendingSub {
-            // If auto-apply is OFF, let it go negative.
-            // If auto-apply is ON, apply when it crosses <= 0.
-            p.secondsRemaining -= actualDelta
-
-            if autoApplyWhenCountdownHitsZero, p.secondsRemaining <= 0 {
-                // Apply automatically at the moment we hit/passed zero.
-                engine.applySubstitution(
-                    state: &state,
-                    inIDs: p.inIDs,
-                    outIDs: p.outIDs,
-                    timeMinute: state.totalMinutesElapsed
-                )
-                pendingSub = nil
-            } else {
-                pendingSub = p
-            }
-        }
-
-        // ---- Advance engine on minute boundaries (even during pendingSub) ----
-        let oldMinute = oldSeconds / 60
-        let newMinute = newSeconds / 60
-        let minutesToAdvance = newMinute - oldMinute
-
-        if minutesToAdvance > 0 {
-            for _ in 0..<minutesToAdvance {
-                _ = engine.advanceOneMinute(state: &state)
-
-                // Only start a new pending sub if none is pending already
-                if pendingSub == nil, shouldTriggerCheckpoint(state: state) {
-                    startPendingSubstitution(state: state)
-                }
-            }
-        }
-
-        // ---- Stop at end (in case we hit exactly) ----
-        if gameClockSeconds >= periodDurationSec {
-            isRunning = false
-            // keep pendingSub as-is so coach can still hit OK if desired
-        }
-
-        for i in state.players.indices {
-            state.players[i].minutesThisGame = state.players[i].secondsPlayedThisGame / 60
-            state.players[i].continuousMinutesThisGame = state.players[i].continuousSecondsPlayedThisGame / 60
-        }
-
-        gameState = state
+        self.players = updatedPlayers
     }
-
-
-
-    func confirmSubstitutionOK() {
-        guard var state = gameState else { return }
-        guard let p = pendingSub else { return }
-
-        engine.applySubstitution(
-            state: &state,
-            inIDs: p.inIDs,
-            outIDs: p.outIDs,
-            timeMinute: state.totalMinutesElapsed
-        )
-
-        gameState = state
-        pendingSub = nil
-    }
-
-    func togglePause() {
-        isPaused.toggle()
-    }
-
-
+    
+    // MARK: - Computed Properties
     
     var gameClockText: String {
-        let m = gameClockSeconds / 60
-        let s = gameClockSeconds % 60
-        return "\(m):\(String(format: "%02d", s))"
+        let minutes = gameClockSeconds / 60
+        let seconds = gameClockSeconds % 60
+        return "\(minutes):\(String(format: "%02d", seconds))"
     }
-
-    private func checkpointminutesPerPeriod(
-        intensity: SubstitutionIntensity,
-        minutesPerPeriod: Int
-    ) -> Set<Int> {
-        // minuteInQuarter is 0...(minutesPerPeriod-1) AFTER your advance logic.
-        // With your current engine, checkpoint at 2 means "after 2 minutes played".
-        switch intensity {
-        case .frequent:
-            return [2, 4, 6, 8].filter { $0 < minutesPerPeriod }.asSet()
-        case .balanced:
-            return [3, 6, 9].filter { $0 < minutesPerPeriod }.asSet()
-        case .infrequent:
-            return [5].filter { $0 < minutesPerPeriod }.asSet()
+    
+    var isAtQuarterEnd: Bool {
+        guard let state = gameState else { return false }
+        let quarterDuration = state.config.minutesPerPeriod * 60
+        return gameClockSeconds >= quarterDuration
+    }
+    
+    func previewNextQuarterStarters() -> [PlayerGameRuntime] {
+        guard let state = gameState else { return [] }
+        
+        var eligible = state.players.filter { $0.isAvailable && !$0.isInjured }
+        
+        // Shuffle for fairness
+        eligible.shuffle()
+        
+        // Sort by least total seconds played
+        eligible.sort { p1, p2 in
+            if p1.secondsPlayedThisGame != p2.secondsPlayedThisGame {
+                return p1.secondsPlayedThisGame < p2.secondsPlayedThisGame
+            }
+            // Tie-breaker: season minutes
+            return p1.seasonMinutesBeforeGame < p2.seasonMinutesBeforeGame
         }
+        
+        return eligible
     }
-
-    private func shouldTriggerCheckpoint(state: GameState) -> Bool {
-        guard state.status == .normalGame else { return false }
-        let checkpoints = checkpointminutesPerPeriod(
-            intensity: state.intensity,
-            minutesPerPeriod: state.config.minutesPerPeriod
-        )
-        return checkpoints.contains(state.minuteInQuarter)
-    }
-
-    private func startPendingSubstitution(state: GameState) {
-        guard state.status == .normalGame else { return }
-
-        let proposal = engine.proposeSubstitution(state: state)
-        guard !proposal.inIDs.isEmpty else { return }
-
-        let pairs = zip(proposal.inIDs, proposal.outIDs).map { (in: $0.0, out: $0.1) }
-
-        pendingSub = PendingSubstitution(
-            scheduledAtMinute: state.totalMinutesElapsed,
-            countdownSeconds: 60,
-            secondsRemaining: 60,
-            inIDs: proposal.inIDs,
-            outIDs: proposal.outIDs,
-            pairs: pairs
-        )
-    }
-
 }
 
-private extension Array where Element == Int {
-    func asSet() -> Set<Int> { Set(self) }
+// MARK: - Helper Extensions
+
+extension Array where Element == Player {
+    func seasonSnapshotsForLineup() -> [PlayerSeasonSnapshot] {
+        map { $0.seasonSnapshotForLineup }
+    }
+    
+    func availabilityList(availableIds: Set<UUID>) -> [PlayerAvailability] {
+        map { player in
+            player.availability(isAvailable: availableIds.contains(player.id))
+        }
+    }
 }

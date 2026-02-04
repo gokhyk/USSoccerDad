@@ -1,3 +1,15 @@
+//
+//  TeamModels.swift
+//  USSoccerDad
+//
+//  Created by Ayse Kula on 11/25/25.
+//
+
+
+
+
+
+
 import Foundation
 
 enum AgeGroup: String, CaseIterable, Identifiable, Codable {

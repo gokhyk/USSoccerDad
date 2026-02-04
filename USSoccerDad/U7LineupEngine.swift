@@ -2,64 +2,67 @@
 //  U7LineupEngine.swift
 //  USSoccerDad
 //
-//  Created by Ayse Kula on 11/28/25.
+//  Refactored for better fairness and clarity
 //
 
 import Foundation
+
 // MARK: - Shared Types
 
 typealias PlayerID = UUID
 
 enum SubstitutionIntensity: String, Codable {
-    case frequent    // interval = minutesPerPeriod / 5
-    case balanced    // interval = minutesPerPeriod / 4
-    case infrequent  // interval = minutesPerPeriod / 3
+    case frequent    // every 2 minutes
+    case balanced    // every 3 minutes
+    case infrequent  // every 6 minutes
 }
 
 struct GameConfig: Codable, Equatable {
     let minutesPerPeriod: Int       // e.g. 10
-    let periods: Int                // e.g. 4
-    let playersOnField: Int          // e.g. 4
-    let minPlayersToStart: Int       // e.g. 3
+    let periods: Int                // e.g. 4 (quarters) or 2 (halves)
+    let playersOnField: Int         // e.g. 4
+    let minPlayersToStart: Int      // e.g. 3
 }
 
-// Season snapshot before this game
 struct PlayerSeasonSnapshot: Identifiable, Codable {
     let id: PlayerID
     let name: String
-    var seasonMinutesPlayed: Int     // total minutes before this game
+    var seasonMinutesPlayed: Int
 }
 
-// Availability per game
 struct PlayerAvailability: Identifiable, Codable {
     let id: PlayerID
     var isAvailable: Bool
 }
 
-// Runtime stats for this game
 struct PlayerGameRuntime: Identifiable, Codable {
     let id: PlayerID
-
     let name: String
     var seasonMinutesBeforeGame: Int
-
+    
     var isAvailable: Bool
     var isInjured: Bool
     var isOnField: Bool
-    var minutesThisGame: Int
-    var continuousMinutesThisGame: Int
-
+    
+    // Track in seconds for precision
     var secondsPlayedThisGame: Int = 0
     var continuousSecondsPlayedThisGame: Int = 0
-
     
+    // Computed properties for display
+    var minutesThisGame: Int {
+        secondsPlayedThisGame / 60
+    }
+    
+    var continuousMinutesThisGame: Int {
+        continuousSecondsPlayedThisGame / 60
+    }
 }
 
 enum GameStatus: String, Codable {
     case notStarted
     case forfeit            // < minPlayersToStart available
-    case noSubGame          // 3 or 4 available: no subs
-    case normalGame         // >= 5 available: full substitution logic
+    case noSubGame          // exactly playersOnField available: no subs needed
+    case normalGame         // > playersOnField available: full substitution logic
     case finished
 }
 
@@ -72,7 +75,8 @@ enum LineupEventType: String, Codable {
 }
 
 struct LineupEvent: Codable {
-    let timeMinute: Int              // from start of game, 0-based
+    let timeMinute: Int
+    let timeSecond: Int
     let type: LineupEventType
     let playersOnField: [PlayerID]
     let playersIn: [PlayerID]
@@ -83,17 +87,29 @@ struct GameState: Codable {
     var config: GameConfig
     var intensity: SubstitutionIntensity
     var status: GameStatus
-
-    var currentQuarter: Int          // 0 if not started / forfeit, else 1...periods
-    var minuteInQuarter: Int         // 0...(minutesPerPeriod - 1)
-    var totalMinutesElapsed: Int     // 0...(minutesPerPeriod * periods)
-
+    
+    var currentQuarter: Int
+    var totalSecondsElapsed: Int
+    
+    // Substitution scheduling
+    var subIntervalSeconds: Int
+    var nextSubAtSecond: Int
+    
     var players: [PlayerGameRuntime]
     var events: [LineupEvent]
+    
+    // Computed properties
+    var totalMinutesElapsed: Int {
+        totalSecondsElapsed / 60
+    }
+    
+    var minuteInQuarter: Int {
+        let quarterStartSecond = (currentQuarter - 1) * config.minutesPerPeriod * 60
+        return (totalSecondsElapsed - quarterStartSecond) / 60
+    }
 }
 
 // MARK: - Engine Protocol
-
 
 protocol U7LineupEngine {
     func initializeGame(
@@ -102,35 +118,28 @@ protocol U7LineupEngine {
         roster: [PlayerSeasonSnapshot],
         availability: [PlayerAvailability]
     ) -> GameState
-
-    func advanceOneMinute(state: inout GameState) -> [LineupEvent]
-    func simulateFullGame(state: inout GameState) -> GameState
-
-    // ✅ add these
+    
     func proposeSubstitution(state: GameState) -> (inIDs: [PlayerID], outIDs: [PlayerID])
-
+    
     @discardableResult
     func applySubstitution(
         state: inout GameState,
         inIDs: [PlayerID],
-        outIDs: [PlayerID],
-        timeMinute: Int
-    ) -> [LineupEvent]
-
+        outIDs: [PlayerID]
+    ) -> LineupEvent?
+    
     @discardableResult
-    func markInjured(playerId: PlayerID, state: inout GameState) -> [LineupEvent]
-
+    func markInjured(playerId: PlayerID, state: inout GameState) -> LineupEvent?
+    
     @discardableResult
-    func markRecovered(playerId: PlayerID, state: inout GameState) -> [LineupEvent]
-
+    func markRecovered(playerId: PlayerID, state: inout GameState) -> LineupEvent?
+    
+    func advanceToNextQuarter(state: inout GameState)
 }
-
 
 // MARK: - Default Implementation
 
 struct DefaultU7LineupEngine: U7LineupEngine {
-    
-    // MARK: Public API
     
     func initializeGame(
         config: GameConfig,
@@ -142,7 +151,6 @@ struct DefaultU7LineupEngine: U7LineupEngine {
         let availabilityMap = Dictionary(
             uniqueKeysWithValues: availability.map { ($0.id, $0.isAvailable) }
         )
-        //print(availabilityMap)
         
         var players: [PlayerGameRuntime] = roster.map { snapshot in
             PlayerGameRuntime(
@@ -151,45 +159,43 @@ struct DefaultU7LineupEngine: U7LineupEngine {
                 seasonMinutesBeforeGame: snapshot.seasonMinutesPlayed,
                 isAvailable: availabilityMap[snapshot.id] ?? false,
                 isInjured: false,
-                isOnField: false,
-                minutesThisGame: 0,
-                continuousMinutesThisGame: 0
+                isOnField: false
             )
         }
-        //print(players)
         
-        let available = players.filter { $0.isAvailable && !$0.isInjured}
+        let available = players.filter { $0.isAvailable && !$0.isInjured }
         let availableCount = available.count
         
-        // 1. Forfeit: fewer than minPlayersToStart (3)
+        let intervalSeconds = substitutionIntervalSeconds(for: intensity)
+        
+        // 1. Forfeit: fewer than minimum players
         if availableCount < config.minPlayersToStart {
             return GameState(
                 config: config,
                 intensity: intensity,
                 status: .forfeit,
                 currentQuarter: 0,
-                minuteInQuarter: 0,
-                totalMinutesElapsed: 0,
+                totalSecondsElapsed: 0,
+                subIntervalSeconds: intervalSeconds,
+                nextSubAtSecond: intervalSeconds,
                 players: players,
                 events: []
             )
         }
         
-        // 2. No-sub game: exactly 3 or 4 available
-        if availableCount == config.minPlayersToStart || availableCount == config.playersOnField {
-            // everyone who is available plays the whole game, no subs
+        // 2. No-sub game: exactly the right number of players
+        if availableCount == config.playersOnField {
             for i in players.indices {
                 if players[i].isAvailable {
                     players[i].isOnField = true
                 }
             }
             
-            let onFieldIDs = players
-                .filter { $0.isOnField }
-                .map { $0.id }
+            let onFieldIDs = players.filter { $0.isOnField }.map { $0.id }
             
             let initialEvent = LineupEvent(
                 timeMinute: 0,
+                timeSecond: 0,
                 type: .initialLineup,
                 playersOnField: onFieldIDs,
                 playersIn: onFieldIDs,
@@ -201,23 +207,16 @@ struct DefaultU7LineupEngine: U7LineupEngine {
                 intensity: intensity,
                 status: .noSubGame,
                 currentQuarter: 1,
-                minuteInQuarter: 0,
-                totalMinutesElapsed: 0,
+                totalSecondsElapsed: 0,
+                subIntervalSeconds: intervalSeconds,
+                nextSubAtSecond: intervalSeconds,
                 players: players,
                 events: [initialEvent]
             )
         }
         
-        // 3. Normal game with substitutions (>=5 available)
-        // Initial lineup selection:
-        //   - Least season minutes
-        //   - Random tie-breaker
-        var availablePlayers = players.filter { $0.isAvailable }.shuffled()
-        availablePlayers.sort {
-            $0.seasonMinutesBeforeGame < $1.seasonMinutesBeforeGame
-        }
-        
-        let starters = Array(availablePlayers.prefix(config.playersOnField))
+        // 3. Normal game with substitutions
+        let starters = selectInitialStarters(from: players, count: config.playersOnField)
         let starterIDs = Set(starters.map { $0.id })
         
         for i in players.indices {
@@ -226,225 +225,193 @@ struct DefaultU7LineupEngine: U7LineupEngine {
             }
         }
         
-        let onFieldIDs = players
-            .filter { $0.isOnField }
-            .map { $0.id }
-        
         let initialEvent = LineupEvent(
             timeMinute: 0,
+            timeSecond: 0,
             type: .initialLineup,
-            playersOnField: onFieldIDs,
-            playersIn: onFieldIDs,
+            playersOnField: Array(starterIDs),
+            playersIn: Array(starterIDs),
             playersOut: []
         )
-        //print(initialEvent)
         
         return GameState(
             config: config,
             intensity: intensity,
             status: .normalGame,
             currentQuarter: 1,
-            minuteInQuarter: 0,
-            totalMinutesElapsed: 0,
+            totalSecondsElapsed: 0,
+            subIntervalSeconds: intervalSeconds,
+            nextSubAtSecond: intervalSeconds,
             players: players,
             events: [initialEvent]
         )
     }
     
-    func advanceOneMinute( state: inout GameState) -> [LineupEvent] {
-        
-        // Forfeit / finished: no further changes
-        if state.status == .forfeit || state.status == .finished {
-            return []
+    func proposeSubstitution(state: GameState) -> (inIDs: [PlayerID], outIDs: [PlayerID]) {
+        guard state.status == .normalGame else {
+            return ([], [])
         }
         
-        let eventsBefore = state.events.count
+        let eligible = state.players.filter { $0.isAvailable && !$0.isInjured }
+        let benchPlayers = eligible.filter { !$0.isOnField }
+        let fieldPlayers = eligible.filter { $0.isOnField }
         
-        // 1. Update per-player minutes
-        for i in state.players.indices {
-            if state.players[i].isOnField {
-                state.players[i].minutesThisGame = state.players[i].secondsPlayedThisGame / 60
-                state.players[i].continuousMinutesThisGame = state.players[i].continuousSecondsPlayedThisGame / 60
-            }
+        guard !benchPlayers.isEmpty else {
+            return ([], [])
         }
         
-        // 2. Advance clock
-        state.minuteInQuarter += 1
-        state.totalMinutesElapsed += 1
-        
-        
-        // 3. End of quarter?
-        if state.minuteInQuarter == state.config.minutesPerPeriod {
-            handleQuarterEnd(&state)
-        } else {
-            // mid-quarter: only normal games have subs
-            if state.status == .normalGame {
-                handleSubstitutionCheckpointIfNeeded(&state)
-            }
+        // Calculate how many players to swap based on fairness gap
+        let swapCount = calculateSwapCount(eligible: eligible, state: state)
+        guard swapCount > 0 else {
+            return ([], [])
         }
         
-        let eventsAfter = state.events.count
-        if eventsAfter > eventsBefore {
-            return Array(state.events[eventsBefore..<eventsAfter])
-        } else {
-            return []
-        }
+        // Target playing time for fairness
+        let targetSeconds = calculateTargetSeconds(state: state)
+        
+        // Select players to come IN (most underplayed)
+        let playersIn = selectPlayersToSwapIn(
+            from: benchPlayers,
+            count: swapCount,
+            targetSeconds: targetSeconds
+        )
+        
+        // Select players to come OUT (most overplayed or tired)
+        let playersOut = selectPlayersToSwapOut(
+            from: fieldPlayers,
+            count: swapCount,
+            targetSeconds: targetSeconds
+        )
+        
+        return (playersIn.map(\.id), playersOut.map(\.id))
     }
     
-    func simulateFullGame(
-        state: inout GameState
-    ) -> GameState {
-        while state.status != .finished && state.status != .forfeit {
-            _ = advanceOneMinute(state: &state)
-        }
-        return state
-    }
-    
-    // MARK: - Private helpers
-    
-    private func substitutionInterval(for state: GameState) -> Int {
-        let base = Double(state.config.minutesPerPeriod)
-        let raw: Double
-        
-        switch state.intensity {
-        case .frequent:
-            raw = base / 5.0
-        case .balanced:
-            raw = base / 4.0
-        case .infrequent:
-            raw = base / 3.0
-        }
-        
-        let interval = Int(floor(raw))
-        return max(1, interval)
-
-    }
-    
-    private func benchCount(_ state: GameState) -> Int {
-        state.players.filter { $0.isAvailable && !$0.isInjured && !$0.isOnField }.count
-    }
-    
-    private func playersToSubstituteCount(_ state: GameState) -> Int {
-        let bench = benchCount(state)
-        if bench == 0 { return 0 }
-        
-        let baseN: Int
-        switch state.intensity {
-        case .frequent:
-            baseN = Int(ceil(Double(bench) / 4.0))
-        case .balanced:
-            baseN = Int(ceil(Double(bench) / 2.0))
-        case .infrequent:
-            baseN = bench
-        }
-        
-        var N = max(1, baseN)
-        N = min(N, state.config.playersOnField)
-        N = min(N, bench)
-        return N
-    }
-    
-    private func selectPlayersToComeIn(_ state: GameState, count N: Int) -> [PlayerID] {
-        let target = targetSecondsSoFar(state)
-        
-        var bench = state.players
-            .filter { $0.isAvailable && !$0.isInjured && !$0.isOnField }
-            .shuffled() // random tie-breaker
-        
-        bench.sort { lhs, rhs in
-            
-            let e1 = Double(lhs.secondsPlayedThisGame) - target
-            let e2 = Double(rhs.secondsPlayedThisGame) - target
-            
-            if e1 != e2 {
-                return e1 < e2
-            }
-            return lhs.seasonMinutesBeforeGame < rhs.seasonMinutesBeforeGame
-        }
-        
-        return Array(bench.prefix(N)).map { $0.id }
-    }
-    
-    private func selectPlayersToGoOut(_ state: GameState, count N: Int) -> [PlayerID] {
-        
-        let target = targetSecondsSoFar(state)
-        
-        var field = state.players
-            .filter { $0.isAvailable && !$0.isInjured  && $0.isOnField }
-            .shuffled() // random tie-breaker for perfect ties
-        
-        field.sort { lhs, rhs in
-            let e1 = Double(lhs.secondsPlayedThisGame) - target
-            let e2 = Double(rhs.secondsPlayedThisGame) - target
-            if e1 != e2 { return e1 > e2 } // more positive = more overplayed
-            // tie-breaker: longer continuous stint goes out first
-            if lhs.continuousSecondsPlayedThisGame != rhs.continuousSecondsPlayedThisGame {
-                return lhs.continuousSecondsPlayedThisGame > rhs.continuousSecondsPlayedThisGame
-            }
-            return lhs.seasonMinutesBeforeGame > rhs.seasonMinutesBeforeGame
-        }
-        
-        return Array(field.prefix(N)).map { $0.id }
-    }
-    
-
     @discardableResult
     func applySubstitution(
         state: inout GameState,
         inIDs: [PlayerID],
-        outIDs: [PlayerID],
-        timeMinute: Int
-    ) -> [LineupEvent] {
-        guard state.status == .normalGame else { return [] }
-        guard inIDs.count == outIDs.count else { return [] }
-
-        for i in state.players.indices {
-            let id = state.players[i].id
-
-            if inIDs.contains(id) {
-                state.players[i].isOnField = true
-                // entering: start a new "stint"
-                state.players[i].continuousSecondsPlayedThisGame = 0
-                state.players[i].continuousMinutesThisGame = 0  // optional; keep if UI expects it
-            } else if outIDs.contains(id) {
-                state.players[i].isOnField = false
-                // leaving: end stint
-                state.players[i].continuousSecondsPlayedThisGame = 0
-                state.players[i].continuousMinutesThisGame = 0
+        outIDs: [PlayerID]
+    ) -> LineupEvent? {
+        guard !inIDs.isEmpty, inIDs.count == outIDs.count else {
+            return nil
+        }
+        
+        // Apply the substitution
+        for id in outIDs {
+            if let idx = state.players.firstIndex(where: { $0.id == id }) {
+                state.players[idx].isOnField = false
+                state.players[idx].continuousSecondsPlayedThisGame = 0
             }
         }
-
+        
+        for id in inIDs {
+            if let idx = state.players.firstIndex(where: { $0.id == id }) {
+                state.players[idx].isOnField = true
+                state.players[idx].continuousSecondsPlayedThisGame = 0
+            }
+        }
+        
         let fieldIDs = state.players.filter { $0.isOnField }.map { $0.id }
-
+        
         let event = LineupEvent(
-            timeMinute: timeMinute,
+            timeMinute: state.totalMinutesElapsed,
+            timeSecond: state.totalSecondsElapsed,
             type: .substitution,
             playersOnField: fieldIDs,
             playersIn: inIDs,
             playersOut: outIDs
         )
+        
         state.events.append(event)
-        return [event]
+        
+        // Schedule next substitution
+        state.nextSubAtSecond = state.totalSecondsElapsed + state.subIntervalSeconds
+        
+        return event
     }
-
     
-    func checkpointminutesPerPeriod(intensity: SubstitutionIntensity, minutesPerPeriod: Int) -> Set<Int> {
-        switch intensity {
-        case .frequent:   return [2,4,6,8]
-        case .balanced:   return [3,6,9]
-        case .infrequent: return [5]
+    @discardableResult
+    func markInjured(playerId: PlayerID, state: inout GameState) -> LineupEvent? {
+        guard let idx = state.players.firstIndex(where: { $0.id == playerId }) else {
+            return nil
         }
+        guard state.players[idx].isAvailable, !state.players[idx].isInjured else {
+            return nil
+        }
+        
+        state.players[idx].isInjured = true
+        let wasOnField = state.players[idx].isOnField
+        
+        if wasOnField {
+            state.players[idx].isOnField = false
+            state.players[idx].continuousSecondsPlayedThisGame = 0
+            
+            // Bring in a replacement if available
+            if state.status == .normalGame {
+                let eligible = state.players.filter {
+                    $0.isAvailable && !$0.isInjured && !$0.isOnField
+                }
+                
+                if let replacement = selectPlayersToSwapIn(
+                    from: eligible,
+                    count: 1,
+                    targetSeconds: calculateTargetSeconds(state: state)
+                ).first {
+                    if let repIdx = state.players.firstIndex(where: { $0.id == replacement.id }) {
+                        state.players[repIdx].isOnField = true
+                        state.players[repIdx].continuousSecondsPlayedThisGame = 0
+                    }
+                }
+            }
+        }
+        
+        let fieldIDs = state.players.filter { $0.isOnField }.map { $0.id }
+        
+        let event = LineupEvent(
+            timeMinute: state.totalMinutesElapsed,
+            timeSecond: state.totalSecondsElapsed,
+            type: .injury,
+            playersOnField: fieldIDs,
+            playersIn: [],
+            playersOut: [playerId]
+        )
+        
+        state.events.append(event)
+        return event
     }
-
     
-    private func handleQuarterEnd(_ state: inout GameState) {
-        // Quarter break event (no automatic ins/outs yet)
-        let fieldIDs = state.players
-            .filter { $0.isOnField }
-            .map { $0.id }
+    @discardableResult
+    func markRecovered(playerId: PlayerID, state: inout GameState) -> LineupEvent? {
+        guard let idx = state.players.firstIndex(where: { $0.id == playerId }) else {
+            return nil
+        }
+        guard state.players[idx].isInjured, !state.players[idx].isOnField else {
+            return nil
+        }
+        
+        state.players[idx].isInjured = false
+        
+        let fieldIDs = state.players.filter { $0.isOnField }.map { $0.id }
+        
+        let event = LineupEvent(
+            timeMinute: state.totalMinutesElapsed,
+            timeSecond: state.totalSecondsElapsed,
+            type: .recovery,
+            playersOnField: fieldIDs,
+            playersIn: [playerId],
+            playersOut: []
+        )
+        
+        state.events.append(event)
+        return event
+    }
+    
+    func advanceToNextQuarter(state: inout GameState) {
+        let fieldIDs = state.players.filter { $0.isOnField }.map { $0.id }
         
         let breakEvent = LineupEvent(
             timeMinute: state.totalMinutesElapsed,
+            timeSecond: state.totalSecondsElapsed,
             type: .quarterBreak,
             playersOnField: fieldIDs,
             playersIn: [],
@@ -452,155 +419,185 @@ struct DefaultU7LineupEngine: U7LineupEngine {
         )
         state.events.append(breakEvent)
         
-        // Everyone gets a "rest" -> reset continuous minutes
+        // Reset continuous time for everyone (they all got a break)
         for i in state.players.indices {
-            state.players[i].continuousMinutesThisGame = 0
             state.players[i].continuousSecondsPlayedThisGame = 0
         }
         
-        // Move to next quarter or finish
         state.currentQuarter += 1
-        state.minuteInQuarter = 0
         
         if state.currentQuarter > state.config.periods {
             state.status = .finished
             return
         }
-        // ✅ Start-of-second-half fairness rebalance
-        if state.currentQuarter == secondHalfStartQuarterIndex(state) {
-            rebalanceOnFieldForFairness(&state)
-
-            // Optional: log it as an event so you can see it in your timeline
-            let newFieldIDs = state.players.filter { $0.isOnField }.map { $0.id }
-            let event = LineupEvent(
-                timeMinute: state.totalMinutesElapsed,
-                type: .substitution,              // or add a new .halfStartRebalance if you want
-                playersOnField: newFieldIDs,
-                playersIn: [], playersOut: []     // or compute diffs if you care
-            )
-            state.events.append(event)
+        
+        // At halftime (if 4 quarters, this is start of Q3; if 2 halves, start of H2)
+        // Rebalance the lineup for maximum fairness
+        if shouldRebalanceAtQuarterStart(quarter: state.currentQuarter, config: state.config) {
+            rebalanceLineup(state: &state)
         }
-
+        
+        // Schedule first sub of new quarter
+        state.nextSubAtSecond = state.totalSecondsElapsed + state.subIntervalSeconds
     }
     
-    private func handleSubstitutionCheckpointIfNeeded(_ state: inout GameState) {
-
+    // MARK: - Private Helpers
+    
+    private func substitutionIntervalSeconds(for intensity: SubstitutionIntensity) -> Int {
+        switch intensity {
+        case .frequent:   return 2 * 60   // every 2 minutes
+        case .balanced:   return 3 * 60   // every 3 minutes
+        case .infrequent: return 6 * 60   // every 6 minutes
+        }
     }
-
-    @discardableResult
-    func markInjured(playerId: PlayerID, state: inout GameState) -> [LineupEvent] {
-        guard state.status == .normalGame || state.status == .noSubGame else { return [] }
-        guard let idx = state.players.firstIndex(where: { $0.id == playerId }) else { return [] }
-        guard state.players[idx].isAvailable else { return [] }
-        guard !state.players[idx].isInjured else { return [] }
-
-        state.players[idx].isInjured = true
-
-        // If they're on the field, immediately take them out
-        let wasOnField = state.players[idx].isOnField
-        if wasOnField {
-            state.players[idx].isOnField = false
-            state.players[idx].continuousMinutesThisGame = 0
-
-            // If normal game and someone is on the bench, bring one in immediately
-            if state.status == .normalGame {
-                let inIDs = selectPlayersToComeIn(state, count: 1)
-                if let inId = inIDs.first,
-                   let inIdx = state.players.firstIndex(where: { $0.id == inId }) {
-                    state.players[inIdx].isOnField = true
-                }
+    
+    private func selectInitialStarters(
+        from players: [PlayerGameRuntime],
+        count: Int
+    ) -> [PlayerGameRuntime] {
+        var available = players.filter { $0.isAvailable && !$0.isInjured }
+        
+        // Shuffle for randomness in ties
+        available.shuffle()
+        
+        // Sort by least season minutes played
+        available.sort { $0.seasonMinutesBeforeGame < $1.seasonMinutesBeforeGame }
+        
+        return Array(available.prefix(count))
+    }
+    
+    private func calculateTargetSeconds(state: GameState) -> Double {
+        let eligible = state.players.filter { $0.isAvailable && !$0.isInjured }
+        guard !eligible.isEmpty else { return 0 }
+        
+        // Total player-seconds consumed so far
+        let totalPlayerSeconds = Double(state.totalSecondsElapsed * state.config.playersOnField)
+        
+        // Fair share per player
+        return totalPlayerSeconds / Double(eligible.count)
+    }
+    
+    private func playingError(_ player: PlayerGameRuntime, targetSeconds: Double) -> Double {
+        return Double(player.secondsPlayedThisGame) - targetSeconds
+    }
+    
+    private func calculateSwapCount(eligible: [PlayerGameRuntime], state: GameState) -> Int {
+        let benchCount = eligible.filter { !$0.isOnField }.count
+        guard benchCount > 0 else { return 0 }
+        
+        let targetSeconds = calculateTargetSeconds(state: state)
+        let errors = eligible.map { playingError($0, targetSeconds: targetSeconds) }
+        
+        guard let minError = errors.min(), let maxError = errors.max() else {
+            return 1
+        }
+        
+        let gapSeconds = maxError - minError
+        
+        // Determine swap count based on fairness gap
+        var swapCount = 1
+        if gapSeconds > 240 {      // More than 4 minutes gap
+            swapCount = 3
+        } else if gapSeconds > 120 {  // More than 2 minutes gap
+            swapCount = 2
+        }
+        
+        // Don't swap more than what's available
+        swapCount = min(swapCount, benchCount)
+        swapCount = min(swapCount, state.config.playersOnField)
+        
+        return max(1, swapCount)
+    }
+    
+    private func selectPlayersToSwapIn(
+        from benchPlayers: [PlayerGameRuntime],
+        count: Int,
+        targetSeconds: Double
+    ) -> [PlayerGameRuntime] {
+        var players = benchPlayers
+        
+        // Shuffle for fairness in ties
+        players.shuffle()
+        
+        // Sort by most underplayed (lowest error = most negative)
+        players.sort { playingError($0, targetSeconds: targetSeconds) < playingError($1, targetSeconds: targetSeconds) }
+        
+        return Array(players.prefix(count))
+    }
+    
+    private func selectPlayersToSwapOut(
+        from fieldPlayers: [PlayerGameRuntime],
+        count: Int,
+        targetSeconds: Double
+    ) -> [PlayerGameRuntime] {
+        var players = fieldPlayers
+        
+        // Shuffle for fairness in ties
+        players.shuffle()
+        
+        // Sort by:
+        // 1. Most overplayed (highest error = most positive)
+        // 2. Longest continuous time (needs a rest)
+        players.sort { p1, p2 in
+            let error1 = playingError(p1, targetSeconds: targetSeconds)
+            let error2 = playingError(p2, targetSeconds: targetSeconds)
+            
+            if abs(error1 - error2) > 10 {  // More than 10 seconds difference
+                return error1 > error2
+            }
+            
+            // If similar playing time, prioritize who needs rest
+            return p1.continuousSecondsPlayedThisGame > p2.continuousSecondsPlayedThisGame
+        }
+        
+        return Array(players.prefix(count))
+    }
+    
+    private func shouldRebalanceAtQuarterStart(quarter: Int, config: GameConfig) -> Bool {
+        // For 4 quarters: rebalance at start of Q3 (halftime)
+        // For 2 halves: rebalance at start of H2
+        let halfwayPoint = (config.periods / 2) + 1
+        return quarter == halfwayPoint
+    }
+    
+    private func rebalanceLineup(state: inout GameState) {
+        var eligible = state.players.filter { $0.isAvailable && !$0.isInjured }
+        guard eligible.count >= state.config.minPlayersToStart else { return }
+        
+        // Shuffle for fairness
+        eligible.shuffle()
+        
+        // Sort by least total seconds played
+        eligible.sort { p1, p2 in
+            if p1.secondsPlayedThisGame != p2.secondsPlayedThisGame {
+                return p1.secondsPlayedThisGame < p2.secondsPlayedThisGame
+            }
+            // Tie-breaker: season minutes
+            return p1.seasonMinutesBeforeGame < p2.seasonMinutesBeforeGame
+        }
+        
+        let onFieldCount = min(state.config.playersOnField, eligible.count)
+        let newOnFieldIDs = Set(eligible.prefix(onFieldCount).map { $0.id })
+        
+        // Update who's on field
+        for i in state.players.indices {
+            let shouldBeOnField = newOnFieldIDs.contains(state.players[i].id)
+            if state.players[i].isOnField != shouldBeOnField {
+                state.players[i].isOnField = shouldBeOnField
+                state.players[i].continuousSecondsPlayedThisGame = 0
             }
         }
-
+        
+        // Log the rebalance event
         let fieldIDs = state.players.filter { $0.isOnField }.map { $0.id }
-
         let event = LineupEvent(
             timeMinute: state.totalMinutesElapsed,
-            type: .injury,
+            timeSecond: state.totalSecondsElapsed,
+            type: .substitution,
             playersOnField: fieldIDs,
             playersIn: [],
-            playersOut: [playerId]
-        )
-        state.events.append(event)
-        return [event]
-    }
-
-    @discardableResult
-    func markRecovered(playerId: PlayerID, state: inout GameState) -> [LineupEvent] {
-        guard let idx = state.players.firstIndex(where: { $0.id == playerId }) else { return [] }
-        guard state.players[idx].isInjured else { return [] }
-        guard state.players[idx].isOnField == false else { return [] } // your rule
-
-        state.players[idx].isInjured = false
-
-        let fieldIDs = state.players.filter { $0.isOnField }.map { $0.id }
-
-        let event = LineupEvent(
-            timeMinute: state.totalMinutesElapsed,
-            type: .recovery,
-            playersOnField: fieldIDs,
-            playersIn: [playerId],
             playersOut: []
         )
         state.events.append(event)
-        return [event]
     }
-
-    
-    func proposeSubstitution(state: GameState) -> (inIDs: [PlayerID], outIDs: [PlayerID]) {
-        let N = playersToSubstituteCount(state)
-        if N == 0 { return ([], []) }
-        let inIDs = selectPlayersToComeIn(state, count: N)
-        let outIDs = selectPlayersToGoOut(state, count: N)
-        return (inIDs, outIDs)
-    }
-
-    private func rebalanceOnFieldForFairness(_ state: inout GameState) {
-        // Only consider eligible players
-        var eligible = state.players.enumerated()
-            .filter { $0.element.isAvailable && !$0.element.isInjured }
-
-        guard eligible.count >= state.config.minPlayersToStart else { return }
-
-        // Sort by least total seconds played (primary fairness lever)
-        eligible.sort { a, b in
-            if a.element.secondsPlayedThisGame != b.element.secondsPlayedThisGame {
-                return a.element.secondsPlayedThisGame < b.element.secondsPlayedThisGame
-            }
-            // tie-breaker: lower season minutes gets preference
-            return a.element.seasonMinutesBeforeGame < b.element.seasonMinutesBeforeGame
-        }
-
-        let onFieldCount = min(state.config.playersOnField, eligible.count)
-        let onFieldSet = Set(eligible.prefix(onFieldCount).map { $0.element.id })
-
-        for i in state.players.indices {
-            let shouldBeOn = onFieldSet.contains(state.players[i].id)
-            if state.players[i].isOnField != shouldBeOn {
-                state.players[i].isOnField = shouldBeOn
-                state.players[i].continuousSecondsPlayedThisGame = 0
-                state.players[i].continuousMinutesThisGame = 0
-            }
-        }
-    }
-
-    private func secondHalfStartQuarterIndex(_ state: GameState) -> Int {
-        // periods=2 => 2nd half starts at 2
-        // periods=4 => 2nd half starts at 3
-        (state.config.periods / 2) + 1
-    }
-
-    private func targetSecondsSoFar(_ state: GameState) -> Double {
-        let eligibleCount = state.players.filter { $0.isAvailable && !$0.isInjured }.count
-        guard eligibleCount > 0 else { return 0 }
-
-        // This is "player-seconds consumed" / number of players
-        // elapsedSec should come from your VM clock or derived from totalMinutesElapsed * 60 + secondsIntoMinute (if you add that later)
-        let elapsedSec = Double(state.totalMinutesElapsed * 60)   // coarse; better if you add secondsIntoMinute
-        let totalPlayerSeconds = elapsedSec * Double(state.config.playersOnField)
-        return totalPlayerSeconds / Double(eligibleCount)
-    }
-
-    
-    
 }
