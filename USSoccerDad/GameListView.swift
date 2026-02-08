@@ -72,6 +72,8 @@ struct GameListView: View {
             opponent: "",
             date: Date(),
             location: nil,
+            durations: team.durations,
+            numberOfPeriods: team.numberOfPeriods,
             minutesPerPeriod: team.minutesPerPeriod,
             playersOnField: team.playersOnField,
             notes: nil,

@@ -98,7 +98,7 @@ struct LineupGeneratorView: View {
             }
             .hidden()
         }
-        .navigationTitle("Lineup U? TBD")
+        //.navigationTitle("Lineup U? TBD")
         .task {
             await load()
             

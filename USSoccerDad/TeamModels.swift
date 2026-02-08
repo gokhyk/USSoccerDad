@@ -38,6 +38,7 @@ struct TeamSettings: Identifiable, Codable, Equatable {
     var playersOnField: Int
     var numberOfPeriods: Int
     var minutesPerPeriod: Int
+    var durations: [Int]
     var hasDedicatedGoalkeeper: Bool
 
     // You can add more later:
@@ -57,6 +58,7 @@ extension TeamSettings {
                 playersOnField: 4,
                 numberOfPeriods: 4,
                 minutesPerPeriod: 10,
+                durations: [0, 10, 2, 10, 5, 10, 2, 10, 0],
                 hasDedicatedGoalkeeper: false
             )
         case .u8, .u9:
@@ -67,6 +69,7 @@ extension TeamSettings {
                 playersOnField: 6,
                 numberOfPeriods: 2,
                 minutesPerPeriod: 25,
+                durations: [0, 25, 10, 25, 0],
                 hasDedicatedGoalkeeper: true
             )
         case .u10, .u11:
@@ -77,6 +80,7 @@ extension TeamSettings {
                 playersOnField: 8,
                 numberOfPeriods: 2,
                 minutesPerPeriod: 30,
+                durations: [0, 30, 12, 30, 0],
                 hasDedicatedGoalkeeper: true
             )
         case .u12, .u13, .u14, .u15, .u16, .u17:
@@ -87,6 +91,7 @@ extension TeamSettings {
                 playersOnField: 11,
                 numberOfPeriods: 2,
                 minutesPerPeriod: 35,
+                durations: [0, 35, 12, 35, 0],
                 hasDedicatedGoalkeeper: true
             )
         }
