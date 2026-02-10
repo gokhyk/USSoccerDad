@@ -72,12 +72,12 @@ struct GameDetailView: View {
 
                     Section {
                         NavigationLink("Set Availability") {
-                            AvailabilityView(gameId: g.id, team: team)
+                            AvailabilityView(gameId: g.id, team: team)//, playerRepo: playerRepo)
                         }
 
-                        NavigationLink("Lineup Generator") {
-                            LineupGeneratorView(gameId: g.id, team: team, playerRepo: playerRepo)
-                        }
+//                        NavigationLink("Lineup Generator") {
+//                            LineupGeneratorView(gameId: g.id, team: team, playerRepo: playerRepo)
+//                        }
                     }
                     
                     Section(header: Text("Calendar")) {
@@ -98,7 +98,7 @@ struct GameDetailView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .navigationTitle("Game")
+        .navigationTitle("GameDetail")
         .onAppear { reload() }
         .onReceive(gameStore.$games) { _ in reload() }
     }
