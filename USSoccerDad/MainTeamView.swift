@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct MainTeamView: View {
+    @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var teamStore: TeamStore
     //@EnvironmentObject var gameStore: GameStore
     
@@ -41,14 +42,19 @@ struct MainTeamView: View {
                 NavigationLink("Upcoming Games") {
                     GameListView(team: team)
                 }
-                
-                NavigationLink("Lineup Generator (manual)") {
-                    Text("Direct lineup view (optional)")
-                }
+                Spacer()
+                ThemePicker()
                 
             }
         }
         .navigationTitle("Team")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            // Quick theme switcher in toolbar (optional)
+            ToolbarItem(placement: .navigationBarTrailing) {
+                QuickThemeSwitcher()
+            }
+        }
     }
     
 }

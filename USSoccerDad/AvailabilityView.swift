@@ -9,6 +9,7 @@
 import SwiftUI
 
 struct AvailabilityView: View {
+    @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var gameStore: GameStore
 
     let gameId: UUID

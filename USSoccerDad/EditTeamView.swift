@@ -9,6 +9,7 @@
 import SwiftUI
 
 struct EditTeamView: View {
+    @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var teamStore: TeamStore
     @State private var team: TeamSettings
     var onSave: (TeamSettings) -> Void

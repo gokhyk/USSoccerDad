@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct PostGameView: View {
+    @EnvironmentObject var themeManager: ThemeManager
     @ObservedObject var viewModel: GameViewModel
     @EnvironmentObject var gameStore: GameStore
     

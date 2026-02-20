@@ -83,6 +83,7 @@ import SwiftUI
 
 struct RosterView: View {
     @StateObject private var vm: RosterViewModel
+    @EnvironmentObject var themeManager: ThemeManager  // ← ADD THIS
 
     //@State private var isPresentingEditor = false
     @State private var editingPlayer: Player?
@@ -96,7 +97,7 @@ struct RosterView: View {
             if let error = vm.errorMessage {
                 Section {
                     Text(error)
-                        .foregroundColor(.red)
+                        .foregroundColor(themeManager.colors.error)  // ← CHANGE
                 }
             }
 
@@ -109,19 +110,22 @@ struct RosterView: View {
                         if let number = player.jerseyNumber {
                             Text("#\(number)")
                                 .font(.headline)
+                                .foregroundColor(themeManager.colors.textPrimary)  // ← ADD
                                 .frame(width: 40, alignment: .leading)
                         } else {
                             Text("—")
+                                .foregroundColor(themeManager.colors.textTertiary)  // ← ADD
                                 .frame(width: 40, alignment: .leading)
                         }
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(player.name)
                                 .font(.body)
+                                .foregroundColor(themeManager.colors.textPrimary)  // ← ADD
 
                             Text("Minutes: \(player.totalMinutesPlayed)")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundColor(themeManager.colors.textSecondary)  // ← CHANGE
                         }
 
 
@@ -130,27 +134,28 @@ struct RosterView: View {
                         HStack(spacing: 6) {
                             if player.canPlayGK {
                                 Image(systemName: "shield.lefthalf.filled")   // GK
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(themeManager.colors.info)  // ← CHANGE
                             }
                             if player.canPlayDefense {
                                 Image(systemName: "shield.fill")              // Defense
-                                    .foregroundColor(.green)
+                                    .foregroundColor(themeManager.colors.success)  // ← CHANGE
                             }
                             if player.canPlayAttack {
                                 Image(systemName: "bolt.fill")                // Attack
-                                    .foregroundColor(.red)
+                                    .foregroundColor(themeManager.colors.error)  // ← CHANGE
                             }
 
 
                             if let notes = player.notes, !notes.isEmpty {
                                 Image(systemName: "note.text")
                                     .imageScale(.small)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundColor(themeManager.colors.textTertiary)  // ← CHANGE
                             }
                         }
 
                     }
                 }
+                .buttonStyle(PlainButtonStyle())  // ← ADD
             }
             .onDelete { offsets in
                 Task {
@@ -158,7 +163,11 @@ struct RosterView: View {
                 }
             }
         }
+        .listStyle(.insetGrouped)  // ← ADD
+        .scrollContentBackground(.hidden)  // ← ADD
+        .background(themeManager.colors.background)  // ← ADD
         .navigationTitle("Roster")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -166,6 +175,7 @@ struct RosterView: View {
                     //isPresentingEditor = true
                 } label: {
                     Image(systemName: "plus")
+                    .foregroundColor(themeManager.colors.primary)  // ← ADD
                 }
             }
         }

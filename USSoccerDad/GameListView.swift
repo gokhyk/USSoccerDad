@@ -9,6 +9,7 @@
 import SwiftUI
 
 struct GameListView: View {
+    @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var gameStore: GameStore
     let team: TeamSettings
 

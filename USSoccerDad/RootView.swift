@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct RootView: View {
+    
     @EnvironmentObject var teamStore: TeamStore
     
     var body: some View {

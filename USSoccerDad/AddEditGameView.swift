@@ -9,6 +9,7 @@
 import SwiftUI
 
 struct AddEditGameView: View {
+    @EnvironmentObject var themeManager: ThemeManager
     let team: TeamSettings
 
     @State private var game: Game
@@ -71,6 +72,7 @@ struct AddEditGameView: View {
             }
         }
         .navigationTitle("Game")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button("Cancel") {

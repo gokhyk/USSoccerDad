@@ -10,6 +10,7 @@ import SwiftUI
 
 struct SetupTeamView: View {
     @EnvironmentObject var teamStore: TeamStore
+    @EnvironmentObject var themeManager: ThemeManager
 
     @State private var teamName: String = ""
     @State private var selectedAgeGroup: AgeGroup = .u10
@@ -51,15 +52,20 @@ struct SetupTeamView: View {
                 Button(action: saveTeam) {
                     Text("Save Team & Continue")
                         .frame(maxWidth: .infinity)
+                        .foregroundColor(themeManager.colors.primary)  // ← ADD
                 }
             }
 
             if showValidationError {
                 Text("Please enter a team name.")
-                    .foregroundColor(.red)
+                    //.foregroundColor(.red)
+                    .foregroundColor(themeManager.colors.error)  // ← CHANGE
             }
         }
+        .scrollContentBackground(.hidden)  // ← ADD
+        .background(themeManager.colors.background)  // ← ADD
         .navigationTitle("Set Up Your Team")
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             // Ensure defaults are applied when screen appears first time
             applyDefaults(for: selectedAgeGroup)

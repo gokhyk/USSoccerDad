@@ -12,13 +12,14 @@ import SwiftUI
 struct USSoccerDadApp: App {
     @StateObject private var teamStore = TeamStore()    //LEARN: one object is created in the top view
     @StateObject private var gameStore = GameStore()    //LEARN: one object is created in the top view
+    @StateObject private var themeManager = ThemeManager()    //to propogate new style manager
 
     var body: some Scene {
         WindowGroup {
             RootView()          //LEARN: RootView is user defined.
                 .environmentObject(teamStore)       //LEARN: Environment is a dependency-injection system in SwiftUI.
                 .environmentObject(gameStore)       //LEARN: Environment is a dependency-injection system in SwiftUI.
-
+                .environmentObject(themeManager)
         }
     }
 }

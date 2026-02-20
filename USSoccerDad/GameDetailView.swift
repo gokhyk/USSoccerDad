@@ -9,6 +9,7 @@ import EventKit
 import SwiftUI
 
 struct GameDetailView: View {
+    @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var gameStore: GameStore
 
     let gameId: UUID
@@ -33,72 +34,77 @@ struct GameDetailView: View {
                     if let errorMessage {
                         Text(errorMessage).foregroundStyle(.red)
                     }
-
+                    
                     Section(header: Text("Details")) {
                         TextField("Opponent", text: bindingString(\.opponent))
-
+                        
                         DatePicker(
                             "Date",
                             selection: bindingDate(\.date),
                             displayedComponents: [.date, .hourAndMinute]
                         )
-
+                        
                         TextField("Location", text: bindingOptionalString(\.location))
-
+                        
                         Stepper(
                             "Minutes per Period: \(g.minutesPerPeriod)",
                             value: bindingInt(\.minutesPerPeriod),
                             in: 5...60
                         )
-
+                        
+                        Stepper("Periods per Game: \(g.numberOfPeriods)",
+                                value: bindingInt(\.numberOfPeriods),
+                                in: 2...4)
+                        
                         Stepper(
                             "Players on Field: \(g.playersOnField)",
                             value: bindingInt(\.playersOnField),
                             in: 3...11
                         )
                     }
-
-//                    Section(header: Text("Notes")) {
-//                        TextField("Notes", text: bindingOptionalString(\.notes), axis: .vertical)
-//                            .lineLimit(3...8)
+                    
+//                    Section {
+//                        Button("Save Changes") {
+//                            gameStore.upsert(g)
+//                        }
+//                        .buttonStyle(.borderedProminent)
 //                    }
-
-                    Section {
-                        Button("Save Changes") {
-                            gameStore.upsert(g)
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-
+                    
                     Section {
                         NavigationLink("Set Availability") {
                             AvailabilityView(gameId: g.id, team: team)//, playerRepo: playerRepo)
                         }
-
-//                        NavigationLink("Lineup Generator") {
-//                            LineupGeneratorView(gameId: g.id, team: team, playerRepo: playerRepo)
-//                        }
+                        
                     }
                     
-                    Section(header: Text("Calendar")) {
-                        if let calendarError {
-                            Text(calendarError)
-                                .foregroundStyle(.red)
-                        }
-
-                        Button("Add to Calendar") {
-                            Task { await addToCalendar() }
+//                    Section(header: Text("Calendar")) {
+//                        if let calendarError {
+//                            Text(calendarError)
+//                                .foregroundStyle(.red)
+//                        }
+//                        
+//                        Button("Add to Calendar") {
+//                            Task { await addToCalendar() }
+//                        }
+//                    }
+                }
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Save") {
+                            gameStore.upsert(g)
                         }
                     }
-
-
                 }
-            } else {
+            }
+            
+            else {
                 Text("Game not found.")
                     .foregroundStyle(.secondary)
             }
         }
         .navigationTitle("GameDetail")
+        .navigationBarTitleDisplayMode(.inline)
+
         .onAppear { reload() }
         .onReceive(gameStore.$games) { _ in reload() }
     }
@@ -163,28 +169,28 @@ struct GameDetailView: View {
         return ev
     }
 
-    private func addToCalendar() async {
-        calendarError = nil
-
-        guard let g = game else {
-            calendarError = "Game is not loaded."
-            return
-        }
-
-        do {
-            let granted = try await eventStore.requestFullAccessToEvents()
-            guard granted else {
-                calendarError = "Calendar access was not granted."
-                return
-            }
-
-            // Prepare event and open Apple's editor UI so user can confirm/save
-            calendarEvent = makeCalendarEvent(from: g)
-            showCalendarSheet = true
-
-        } catch {
-            calendarError = "Calendar access error: \(error.localizedDescription)"
-        }
-    }
+//    private func addToCalendar() async {
+//        calendarError = nil
+//
+//        guard let g = game else {
+//            calendarError = "Game is not loaded."
+//            return
+//        }
+//
+//        do {
+//            let granted = try await eventStore.requestFullAccessToEvents()
+//            guard granted else {
+//                calendarError = "Calendar access was not granted."
+//                return
+//            }
+//
+//            // Prepare event and open Apple's editor UI so user can confirm/save
+//            calendarEvent = makeCalendarEvent(from: g)
+//            showCalendarSheet = true
+//
+//        } catch {
+//            calendarError = "Calendar access error: \(error.localizedDescription)"
+//        }
+//    }
 
 }

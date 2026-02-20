@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct SubstitutionOverlayView: View {
+    @EnvironmentObject var themeManager: ThemeManager
     @ObservedObject var viewModel: GameViewModel
     let plan: SubstitutionPlan
     

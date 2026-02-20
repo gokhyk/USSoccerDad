@@ -9,6 +9,7 @@
 import SwiftUI
 
 struct AddEditPlayerView: View {
+    @EnvironmentObject var themeManager: ThemeManager
     @State private var player: Player
 
     var onSave: (Player) -> Void
@@ -53,7 +54,7 @@ struct AddEditPlayerView: View {
 
             }
             
-            Section(header: Text("Season Stats")) {
+            Section(header: Text("Season Stats min played")) {
                 TextField("Total Minutes Played", text: $minutesText)
                     .keyboardType(.numberPad)
             }
@@ -67,6 +68,7 @@ struct AddEditPlayerView: View {
             }
         }
         .navigationTitle(player.name.isEmpty ? "New Player" : "Edit Player")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button("Cancel") {

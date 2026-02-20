@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct ActiveGameView: View {
+    @EnvironmentObject var themeManager: ThemeManager
     @ObservedObject var viewModel: GameViewModel
     
     var session: GameSession? {
@@ -33,14 +34,16 @@ struct ActiveGameView: View {
                         .font(.headline)
                     
                     Text(session.formattedPeriodElapsed)
-                        .font(.system(size: 60, weight: .bold, design: .monospaced))
+                        .font(.system(size: 45, weight: .bold, design: .monospaced))
                     
                     Text("Total: \(session.formattedTotalElapsed)")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        //.foregroundColor(.secondary)
+                        .foregroundColor(themeManager.colors.textPrimary) // <- NEW THEME MANAGER
                 }
-                .padding()
-                .background(Color.blue.opacity(0.1))
+                //.padding()
+                //.background(Color.blue.opacity(0.1))
+                .background(themeManager.colors.surface.opacity(0.1)) // <- NEW THEME MANAGER
                 .cornerRadius(12)
                 
                 // Current lineup
@@ -54,8 +57,9 @@ struct ActiveGameView: View {
                                     viewModel.markPlayerLeftEarly(playerId: player.id)
                                 } label: {
                                     Image(systemName: "xmark.circle")
-                                        .foregroundColor(.red)
+                                        .foregroundColor(themeManager.colors.error)    // <- NEW THEME MANAGER
                                 }
+                                .tint(themeManager.colors.primary)    // <- NEW THEME MANAGER
                                 .buttonStyle(.plain)
                             }
                         }
@@ -70,8 +74,9 @@ struct ActiveGameView: View {
                                     viewModel.markPlayerLeftEarly(playerId: player.id)
                                 } label: {
                                     Image(systemName: "xmark.circle")
-                                        .foregroundColor(.red)
+                                        .foregroundColor(themeManager.colors.error)    // <- NEW THEME MANAGER
                                 }
+                                .tint(themeManager.colors.primary)    // <- NEW THEME MANAGER
                                 .buttonStyle(.plain)
                             }
                         }
@@ -82,7 +87,7 @@ struct ActiveGameView: View {
                             ForEach(absentPlayers.sorted(by: { $0.playerName < $1.playerName })) { player in
                                 HStack {
                                     Text(player.playerName)
-                                        .foregroundColor(.red)
+                                        .foregroundColor(themeManager.colors.error)     // <- NEW THEME MANAGER
                                     
                                     Spacer()
                                     
@@ -91,7 +96,7 @@ struct ActiveGameView: View {
                                     }
                                     .font(.caption)
                                     .buttonStyle(.bordered)
-                                    .tint(.green)
+                                    .tint(themeManager.colors.primary)    // <- NEW THEME MANAGER
                                 }
                             }
                         }
@@ -102,26 +107,31 @@ struct ActiveGameView: View {
                             ForEach(playersLeftEarly.sorted(by: { $0.playerName < $1.playerName })) { player in
                                 HStack {
                                     Text(player.playerName)
-                                        .foregroundColor(.orange)
+                                        //.foregroundColor(.orange)
+                                        .foregroundColor(themeManager.colors.warning)    // <- NEW THEME MANAGER
                                         .strikethrough()
                                     
                                     Spacer()
                                     
                                     Text(player.formattedSecondsPlayed)
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(themeManager.colors.secondary)    // <- NEW THEME MANAGER
                                 }
                             }
                         }
                     }
                 }
+                .listStyle(.insetGrouped)           // Better looking <- NEW THEME MANAGER
+                .scrollContentBackground(.hidden)   // Remove default background <- NEW THEME MANAGER
+                .background(themeManager.colors.background)  // Add themed background <- NEW THEME MANAGER
                 
                 // Next substitution info
                 if let nextSub = session.substitutionPlans.first(where: { !$0.isCompleted }) {
                     VStack {
                         Text("Next sub at \(nextSub.formattedTime)")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            //.foregroundColor(.secondary)
+                            .foregroundColor(themeManager.colors.secondary)    // <- NEW THEME MANAGER
                     }
                     .padding(.horizontal)
                 }

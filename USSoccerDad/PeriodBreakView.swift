@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct PeriodBreakView: View {
+    @EnvironmentObject var themeManager: ThemeManager
     @ObservedObject var viewModel: GameViewModel
     let periodNumber: Int
     let totalBreakSeconds: Int
