@@ -32,7 +32,7 @@ struct GameDetailView: View {
             if let g = game {
                 Form {
                     if let errorMessage {
-                        Text(errorMessage).foregroundStyle(.red)
+                        Text(errorMessage).foregroundStyle(themeManager.colors.error)
                     }
                     
                     Section(header: Text("Details")) {
@@ -71,7 +71,7 @@ struct GameDetailView: View {
 //                    }
                     
                     Section {
-                        NavigationLink("Set Availability") {
+                        NavigationLink("Availability & Start Game") {
                             AvailabilityView(gameId: g.id, team: team)//, playerRepo: playerRepo)
                         }
                         
@@ -99,7 +99,7 @@ struct GameDetailView: View {
             
             else {
                 Text("Game not found.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(themeManager.colors.textSecondary)
             }
         }
         .navigationTitle("GameDetail")

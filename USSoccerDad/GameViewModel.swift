@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import UIKit
 
 @MainActor
 class GameViewModel: ObservableObject {
@@ -30,6 +31,11 @@ class GameViewModel: ObservableObject {
     // Timer for game clock
     private var gameTimer: Timer?
     private var sessionCancellable: AnyCancellable?
+
+    // Background/foreground tracking
+    private var backgroundedAt: Date?
+    private var backgroundObserver: NSObjectProtocol?
+    private var foregroundObserver: NSObjectProtocol?
     
     // Auto-complete substitution setting
     @Published var autoCompleteSubstitutions = false
@@ -39,6 +45,9 @@ class GameViewModel: ObservableObject {
     
     // Skip break countdown setting
     @Published var skipBreakCountdown = false
+
+    // Speed multiplier for testing (1 = normal, 5 = 5x fast)
+    @Published var speedMultiplier: Int = 1
     
     // Pending game configuration (for delayed initialization)
     var pendingGameConfig: (gameId: UUID, config: GameConfig, intensity: SubstitutionIntensity, availablePlayerIds: Set<UUID>)?
@@ -46,6 +55,85 @@ class GameViewModel: ObservableObject {
     init(teamId: UUID, playerRepo: PlayerRepository) {
         self.teamId = teamId
         self.playerRepo = playerRepo
+        subscribeToAppLifecycle()
+    }
+
+    deinit {
+        if let obs = backgroundObserver { NotificationCenter.default.removeObserver(obs) }
+        if let obs = foregroundObserver { NotificationCenter.default.removeObserver(obs) }
+    }
+
+    private func subscribeToAppLifecycle() {
+        backgroundObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.backgroundedAt = Date()
+            self?.stopTimer()
+        }
+
+        foregroundObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.willEnterForegroundNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.handleForeground()
+            }
+        }
+    }
+
+    private func handleForeground() {
+        guard let session = session,
+              let backgroundedAt = backgroundedAt else { return }
+        let missedSeconds = max(0, Int(Date().timeIntervalSince(backgroundedAt)))
+        self.backgroundedAt = nil
+        guard missedSeconds > 0 else { return }
+
+        switch session.phase {
+        case .running, .pendingSubstitution:
+            applyMissedGameSeconds(missedSeconds)
+            if case .running = session.phase { startTimer() }
+            else if case .pendingSubstitution = session.phase { startTimer() }
+        case .periodBreak(let periodNumber, let breakSeconds):
+            applyMissedBreakSeconds(missedSeconds, periodNumber: periodNumber, totalBreakSeconds: breakSeconds)
+            if case .periodBreak = session.phase { startTimer() }
+        default:
+            break
+        }
+    }
+
+    private func applyMissedGameSeconds(_ missed: Int) {
+        guard let session = session else { return }
+        let remaining = session.config.periodSeconds - session.periodElapsedSeconds
+        let effective = min(missed, remaining)
+
+        session.periodElapsedSeconds += effective
+        for i in 0..<session.playerStats.count {
+            if session.playerStats[i].isOnField && !session.playerStats[i].leftEarly {
+                session.playerStats[i].secondsPlayed += effective
+                session.playerStats[i].continuousSecondsPlayed += effective
+            }
+        }
+        updateAbsentPlayerTimes()
+
+        if session.periodElapsedSeconds >= session.config.periodSeconds {
+            handlePeriodEnd()
+        } else {
+            checkForUpcomingSubstitution()
+        }
+    }
+
+    private func applyMissedBreakSeconds(_ missed: Int, periodNumber: Int, totalBreakSeconds: Int) {
+        guard let session = session else { return }
+        session.breakElapsedSeconds = min(session.breakElapsedSeconds + missed, totalBreakSeconds)
+
+        if session.breakElapsedSeconds >= totalBreakSeconds {
+            if skipBreakCountdown || autoStartAfterBreak {
+                startPeriod()
+            } else {
+                stopTimer()
+            }
+        }
     }
     
     // MARK: - Setup
@@ -167,15 +255,15 @@ class GameViewModel: ObservableObject {
     
     private func handleRunningTick() {
         guard let session = session else { return }
-        
+
         // Increment period time
-        session.periodElapsedSeconds += 1
-        
+        session.periodElapsedSeconds += speedMultiplier
+
         // Update player statistics for those on field (and haven't left early)
         for i in 0..<session.playerStats.count {
             if session.playerStats[i].isOnField && !session.playerStats[i].leftEarly {
-                session.playerStats[i].secondsPlayed += 1
-                session.playerStats[i].continuousSecondsPlayed += 1
+                session.playerStats[i].secondsPlayed += speedMultiplier
+                session.playerStats[i].continuousSecondsPlayed += speedMultiplier
             }
         }
         
@@ -194,14 +282,14 @@ class GameViewModel: ObservableObject {
     
     private func handleSubstitutionCountdownTick(plan: SubstitutionPlan) {
         guard let session = session else { return }
-        
-        session.periodElapsedSeconds += 1
-        
+
+        session.periodElapsedSeconds += speedMultiplier
+
         // Update player statistics (excluding those who left early)
         for i in 0..<session.playerStats.count {
             if session.playerStats[i].isOnField && !session.playerStats[i].leftEarly {
-                session.playerStats[i].secondsPlayed += 1
-                session.playerStats[i].continuousSecondsPlayed += 1
+                session.playerStats[i].secondsPlayed += speedMultiplier
+                session.playerStats[i].continuousSecondsPlayed += speedMultiplier
             }
         }
         
@@ -224,7 +312,7 @@ class GameViewModel: ObservableObject {
     private func handleBreakTick(periodNumber: Int, totalBreakSeconds: Int) {
         guard let session = session else { return }
         
-        session.breakElapsedSeconds += 1
+        session.breakElapsedSeconds += speedMultiplier
         
         if session.breakElapsedSeconds >= totalBreakSeconds {
             // Break is over
@@ -240,10 +328,14 @@ class GameViewModel: ObservableObject {
     private func checkForUpcomingSubstitution() {
         guard let session = session else { return }
         
-        // Find next scheduled substitution
+        // Find next scheduled substitution within 60 seconds
+        // Use <= 60 (not == 60) so fast-forward mode doesn't skip the trigger window
         let upcomingSub = session.substitutionPlans
             .filter { !$0.isCompleted }
-            .first { $0.scheduledTime - session.periodElapsedSeconds == 60 }
+            .first {
+                let remaining = $0.scheduledTime - session.periodElapsedSeconds
+                return remaining <= 60 && remaining > 0
+            }
         
         if let sub = upcomingSub {
             // 60 seconds until substitution - calculate actual players

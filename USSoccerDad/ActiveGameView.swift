@@ -10,161 +10,269 @@ import SwiftUI
 struct ActiveGameView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @ObservedObject var viewModel: GameViewModel
-    
-    var session: GameSession? {
-        viewModel.session
-    }
-    
+
+    var session: GameSession? { viewModel.session }
+
     var absentPlayers: [PlayerGameStats] {
         guard let session = session else { return [] }
         return session.playerStats.filter { !$0.wasPresent }
     }
-    
+
     var playersLeftEarly: [PlayerGameStats] {
         guard let session = session else { return [] }
         return session.playersLeftEarly
     }
-    
+
+    private let twoColumns = [GridItem(.flexible()), GridItem(.flexible())]
+
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 0) {
             if let session = session {
-                // Game clock display
-                VStack(spacing: 8) {
-                    Text("Period \(session.currentPeriod) of \(session.config.periods)")
-                        .font(.headline)
-                    
-                    Text(session.formattedPeriodElapsed)
-                        .font(.system(size: 45, weight: .bold, design: .monospaced))
-                    
-                    Text("Total: \(session.formattedTotalElapsed)")
-                        .font(.caption)
-                        //.foregroundColor(.secondary)
-                        .foregroundColor(themeManager.colors.textPrimary) // <- NEW THEME MANAGER
-                }
-                //.padding()
-                //.background(Color.blue.opacity(0.1))
-                .background(themeManager.colors.surface.opacity(0.1)) // <- NEW THEME MANAGER
-                .cornerRadius(12)
-                
-                // Current lineup
-                List {
-                    Section("On Field (\(session.playersOnField.count))") {
-                        ForEach(session.playersOnField.sorted(by: { $0.playerName < $1.playerName })) { player in
-                            HStack {
-                                PlayerStatRow(player: player, isOnField: true)
-                                
-                                Button {
-                                    viewModel.markPlayerLeftEarly(playerId: player.id)
-                                } label: {
-                                    Image(systemName: "xmark.circle")
-                                        .foregroundColor(themeManager.colors.error)    // <- NEW THEME MANAGER
-                                }
-                                .tint(themeManager.colors.primary)    // <- NEW THEME MANAGER
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                    
-                    Section("On Bench (\(session.playersOffField.count))") {
-                        ForEach(session.playersOffField.sorted(by: { $0.playerName < $1.playerName })) { player in
-                            HStack {
-                                PlayerStatRow(player: player, isOnField: false)
-                                
-                                Button {
-                                    viewModel.markPlayerLeftEarly(playerId: player.id)
-                                } label: {
-                                    Image(systemName: "xmark.circle")
-                                        .foregroundColor(themeManager.colors.error)    // <- NEW THEME MANAGER
-                                }
-                                .tint(themeManager.colors.primary)    // <- NEW THEME MANAGER
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                    
-                    if !absentPlayers.isEmpty {
-                        Section("Absent Players") {
-                            ForEach(absentPlayers.sorted(by: { $0.playerName < $1.playerName })) { player in
-                                HStack {
-                                    Text(player.playerName)
-                                        .foregroundColor(themeManager.colors.error)     // <- NEW THEME MANAGER
-                                    
-                                    Spacer()
-                                    
-                                    Button("Arrived") {
-                                        viewModel.markPlayerPresent(playerId: player.id)
-                                    }
-                                    .font(.caption)
-                                    .buttonStyle(.bordered)
-                                    .tint(themeManager.colors.primary)    // <- NEW THEME MANAGER
-                                }
-                            }
-                        }
-                    }
-                    
-                    if !playersLeftEarly.isEmpty {
-                        Section("Left Early") {
-                            ForEach(playersLeftEarly.sorted(by: { $0.playerName < $1.playerName })) { player in
-                                HStack {
-                                    Text(player.playerName)
-                                        //.foregroundColor(.orange)
-                                        .foregroundColor(themeManager.colors.warning)    // <- NEW THEME MANAGER
-                                        .strikethrough()
-                                    
-                                    Spacer()
-                                    
-                                    Text(player.formattedSecondsPlayed)
-                                        .font(.caption)
-                                        .foregroundColor(themeManager.colors.secondary)    // <- NEW THEME MANAGER
-                                }
-                            }
-                        }
-                    }
-                }
-                .listStyle(.insetGrouped)           // Better looking <- NEW THEME MANAGER
-                .scrollContentBackground(.hidden)   // Remove default background <- NEW THEME MANAGER
-                .background(themeManager.colors.background)  // Add themed background <- NEW THEME MANAGER
-                
-                // Next substitution info
-                if let nextSub = session.substitutionPlans.first(where: { !$0.isCompleted }) {
-                    VStack {
-                        Text("Next sub at \(nextSub.formattedTime)")
+
+                // Compact clock row
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Period \(session.currentPeriod) of \(session.config.periods)")
                             .font(.caption)
-                            //.foregroundColor(.secondary)
-                            .foregroundColor(themeManager.colors.secondary)    // <- NEW THEME MANAGER
+                            .foregroundColor(themeManager.colors.textSecondary)
+                        Text(session.formattedPeriodElapsed)
+                            .font(.system(size: 32, weight: .bold, design: .monospaced))
+                            .foregroundColor(themeManager.colors.textPrimary)
                     }
-                    .padding(.horizontal)
+
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 4) {
+                        // 5x speed toggle for testing
+                        Button {
+                            viewModel.speedMultiplier = viewModel.speedMultiplier == 1 ? 5 : 1
+                        } label: {
+                            Text(viewModel.speedMultiplier == 5 ? "5x" : "1x")
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(viewModel.speedMultiplier == 5
+                                    ? themeManager.colors.warning
+                                    : themeManager.colors.surface)
+                                .foregroundColor(viewModel.speedMultiplier == 5
+                                    ? .white
+                                    : themeManager.colors.textTertiary)
+                                .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+
+                        if let nextSub = session.substitutionPlans.first(where: { !$0.isCompleted }) {
+                            Text("Next Sub \(nextSub.formattedTime)")
+                                .font(.caption2)
+                                .foregroundColor(themeManager.colors.primary)
+                        }
+                    }
                 }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .background(themeManager.colors.surface.opacity(0.15))
+
+                Divider()
+
+                // All player sections — no scroll
+                VStack(alignment: .leading, spacing: 10) {
+
+                    // On Field
+                    playerSection("On Field (\(session.playersOnField.count))", color: themeManager.colors.success) {
+                        LazyVGrid(columns: twoColumns, spacing: 8) {
+                            ForEach(session.playersOnField.sorted { $0.playerName < $1.playerName }) { player in
+                                onFieldCard(player)
+                            }
+                        }
+                    }
+
+                    // On Bench
+                    playerSection("Bench (\(session.playersOffField.count))", color: themeManager.colors.textSecondary) {
+                        LazyVGrid(columns: twoColumns, spacing: 8) {
+                            ForEach(session.playersOffField.sorted { $0.playerName < $1.playerName }) { player in
+                                benchCard(player)
+                            }
+                        }
+                    }
+
+                    // Absent
+                    if !absentPlayers.isEmpty {
+                        playerSection("Absent (\(absentPlayers.count))", color: themeManager.colors.error) {
+                            LazyVGrid(columns: twoColumns, spacing: 8) {
+                                ForEach(absentPlayers.sorted { $0.playerName < $1.playerName }) { player in
+                                    absentCard(player)
+                                }
+                            }
+                        }
+                    }
+
+                    // Left Early
+                    if !playersLeftEarly.isEmpty {
+                        playerSection("Left Early (\(playersLeftEarly.count))", color: themeManager.colors.warning) {
+                            LazyVGrid(columns: twoColumns, spacing: 8) {
+                                ForEach(playersLeftEarly.sorted { $0.playerName < $1.playerName }) { player in
+                                    leftEarlyCard(player)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top, 10)
+
+                Spacer()
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle("Game Running")
+        .background(themeManager.colors.background)
+    }
+
+    // MARK: - Section header
+
+    @ViewBuilder
+    private func playerSection<Content: View>(_ title: String, color: Color, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(color)
+                .textCase(.uppercase)
+            content()
+        }
+    }
+
+    // MARK: - Player cards
+
+    @ViewBuilder
+    private func onFieldCard(_ player: PlayerGameStats) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(themeManager.colors.success)
+                    .frame(width: 10, height: 10)
+                Text(player.playerName)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(themeManager.colors.textPrimary)
+                    .lineLimit(1)
+                Spacer(minLength: 2)
+                Button {
+                    viewModel.markPlayerLeftEarly(playerId: player.id)
+                } label: {
+                    Image(systemName: "xmark.circle")
+                        .foregroundColor(themeManager.colors.error)
+                        .imageScale(.medium)
+                }
+                .buttonStyle(.plain)
+            }
+            Text(player.formattedSecondsPlayed)
+                .font(.footnote)
+                .foregroundColor(themeManager.colors.textSecondary)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(themeManager.colors.success.opacity(0.12))
+        .cornerRadius(10)
+    }
+
+    @ViewBuilder
+    private func benchCard(_ player: PlayerGameStats) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(themeManager.colors.textTertiary)
+                    .frame(width: 10, height: 10)
+                Text(player.playerName)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(themeManager.colors.textPrimary)
+                    .lineLimit(1)
+                Spacer(minLength: 2)
+                Button {
+                    viewModel.markPlayerLeftEarly(playerId: player.id)
+                } label: {
+                    Image(systemName: "xmark.circle")
+                        .foregroundColor(themeManager.colors.error)
+                        .imageScale(.medium)
+                }
+                .buttonStyle(.plain)
+            }
+            Text(player.formattedSecondsPlayed)
+                .font(.footnote)
+                .foregroundColor(themeManager.colors.textSecondary)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(themeManager.colors.surface.opacity(0.3))
+        .cornerRadius(10)
+    }
+
+    @ViewBuilder
+    private func absentCard(_ player: PlayerGameStats) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(player.playerName)
+                .font(.subheadline)
+                .foregroundColor(themeManager.colors.error)
+                .lineLimit(1)
+            Button("Arrived") {
+                viewModel.markPlayerPresent(playerId: player.id)
+            }
+            .font(.footnote)
+            .buttonStyle(.bordered)
+            .tint(themeManager.colors.primary)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(themeManager.colors.error.opacity(0.08))
+        .cornerRadius(10)
+    }
+
+    @ViewBuilder
+    private func leftEarlyCard(_ player: PlayerGameStats) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(player.playerName)
+                .font(.subheadline)
+                .foregroundColor(themeManager.colors.warning)
+                .strikethrough()
+                .lineLimit(1)
+            Text(player.formattedSecondsPlayed)
+                .font(.footnote)
+                .foregroundColor(themeManager.colors.textSecondary)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(themeManager.colors.warning.opacity(0.08))
+        .cornerRadius(10)
     }
 }
 
 struct PlayerStatRow: View {
+    @EnvironmentObject var themeManager: ThemeManager
     let player: PlayerGameStats
     let isOnField: Bool
-    
+
     var body: some View {
         HStack {
             Circle()
-                .fill(isOnField ? Color.green : Color.gray)
+                .fill(isOnField ? themeManager.colors.success : themeManager.colors.textTertiary)
                 .frame(width: 8, height: 8)
-            
+
             Text(player.playerName)
                 .font(.body)
-            
+
             Spacer()
-            
+
             VStack(alignment: .trailing, spacing: 2) {
                 Text(player.formattedSecondsPlayed)
                     .font(.body)
                     .fontWeight(.semibold)
-                
+
                 if isOnField && player.continuousSecondsPlayed > 0 {
                     Text("(\(player.formattedContinuousTime) cont.)")
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(themeManager.colors.textSecondary)
                 }
             }
         }

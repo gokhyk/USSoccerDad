@@ -8,9 +8,9 @@
 import SwiftUI
 
 struct RootView: View {
-    
     @EnvironmentObject var teamStore: TeamStore
-    
+    @EnvironmentObject var themeManager: ThemeManager
+
     var body: some View {
         NavigationView {
             Group {
@@ -21,5 +21,6 @@ struct RootView: View {
                 }
             }
         }
+        .preferredColorScheme(themeManager.colorScheme)
     }
 }

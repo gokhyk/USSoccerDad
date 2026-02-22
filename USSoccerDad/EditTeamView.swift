@@ -65,7 +65,7 @@ struct EditTeamView: View {
             if showValidationError {
                 Section {
                     Text("Please enter a team name.")
-                        .foregroundColor(.red)
+                        .foregroundColor(themeManager.colors.error)
                 }
             }
         }

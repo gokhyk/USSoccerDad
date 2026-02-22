@@ -52,10 +52,10 @@ struct PostGameView: View {
                     
                     Text("\(session.config.periods) × \(session.config.minutesPerPeriod) min")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(themeManager.colors.textSecondary)
                 }
                 .padding()
-                .background(Color.blue.opacity(0.1))
+                .background(themeManager.colors.primary.opacity(0.1))
                 .cornerRadius(12)
                 
                 // Player statistics
@@ -69,11 +69,11 @@ struct PostGameView: View {
                                 if player.leftEarly {
                                     Text("(Left Early)")
                                         .font(.caption)
-                                        .foregroundColor(.orange)
+                                        .foregroundColor(themeManager.colors.warning)
                                 } else if player.arrivedLate {
                                     Text("(Late)")
                                         .font(.caption)
-                                        .foregroundColor(.orange)
+                                        .foregroundColor(themeManager.colors.warning)
                                 }
                                 
                                 Spacer()
@@ -84,7 +84,7 @@ struct PostGameView: View {
                                     
                                     Text("\((player.secondsPlayed * 100) / session.totalElapsedSeconds)%")
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(themeManager.colors.textSecondary)
                                 }
                             }
                         }
@@ -94,7 +94,7 @@ struct PostGameView: View {
                         Section("Absent") {
                             ForEach(absentPlayers) { player in
                                 Text(player.playerName)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(themeManager.colors.textSecondary)
                             }
                         }
                     }
@@ -112,11 +112,11 @@ struct PostGameView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.blue)
+                    .background(themeManager.colors.primary)
                     .foregroundColor(.white)
                     .cornerRadius(12)
                 }
-                
+
                 Button(action: saveGame) {
                     VStack {
                         if isSaving {
@@ -131,7 +131,7 @@ struct PostGameView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.green)
+                    .background(themeManager.colors.success)
                     .foregroundColor(.white)
                     .cornerRadius(12)
                 }

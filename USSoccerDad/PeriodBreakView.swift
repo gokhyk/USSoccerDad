@@ -29,9 +29,9 @@ struct PeriodBreakView: View {
     
     var breakColor: Color {
         if remainingSeconds > 15 {
-            return .blue
+            return themeManager.colors.primary
         } else {
-            return .red
+            return themeManager.colors.error
         }
     }
     
@@ -42,64 +42,68 @@ struct PeriodBreakView: View {
                 .font(.largeTitle)
                 .fontWeight(.bold)
             
-            // Countdown
-            VStack(spacing: 8) {
+            // Countdown — tappable to start period when auto-start is off
+            let countdownContent = VStack(spacing: 8) {
                 Text(formatTime(remainingSeconds))
                     .font(.system(size: 80, weight: .bold, design: .rounded))
                     .foregroundColor(breakColor)
-                
+
                 Text("remaining")
                     .font(.headline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(themeManager.colors.textSecondary)
+
+                if !viewModel.autoStartAfterBreak {
+                    Text("Tap to start period \(periodNumber + 1)")
+                        .font(.caption)
+                        .foregroundColor(breakColor.opacity(0.8))
+                        .padding(.top, 4)
+                }
             }
             .padding(40)
             .background(breakColor.opacity(0.1))
             .cornerRadius(20)
-            
+
+            if viewModel.autoStartAfterBreak {
+                countdownContent
+            } else {
+                Button(action: { viewModel.startPeriod() }) {
+                    countdownContent
+                }
+                .buttonStyle(.plain)
+            }
+
             // Next period lineup preview
             if let session = session {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Next Period Lineup")
-                        .font(.headline)
-                    
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundColor(themeManager.colors.success)
+
                     let nextLineup = SubstitutionEngine.calculateNextPeriodLineup(session: session)
                     let nextPlayers = session.playerStats.filter { nextLineup.contains($0.id) }
-                    
+
                     ForEach(nextPlayers.sorted(by: { $0.playerName < $1.playerName })) { player in
-                        HStack {
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .foregroundColor(themeManager.colors.success)
+                                .font(.body)
                             Text(player.playerName)
+                                .font(.system(size: 19))
+                                .foregroundColor(themeManager.colors.success)
                             Spacer()
                             Text(player.formattedSecondsPlayed)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                                .font(.footnote)
+                                .foregroundColor(themeManager.colors.success.opacity(0.7))
                         }
                     }
                 }
                 .padding()
-                .background(Color.gray.opacity(0.1))
+                .background(themeManager.colors.success.opacity(0.1))
                 .cornerRadius(12)
             }
-            
+
             Spacer()
-            
-            // Manual start button (if auto-start is off)
-            if !viewModel.autoStartAfterBreak && remainingSeconds <= 0 {
-                Button(action: {
-                    viewModel.startPeriod()
-                }) {
-                    HStack {
-                        Image(systemName: "play.circle.fill")
-                        Text("Start Period \(periodNumber + 1)")
-                            .fontWeight(.semibold)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.green)
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
-                }
-                .padding()
-            }
         }
         .padding()
         .navigationTitle("Period \(periodNumber) Complete")

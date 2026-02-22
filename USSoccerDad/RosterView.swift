@@ -155,7 +155,8 @@ struct RosterView: View {
 
                     }
                 }
-                .buttonStyle(PlainButtonStyle())  // ← ADD
+                .buttonStyle(PlainButtonStyle())
+                .listRowBackground(themeManager.colors.surface)
             }
             .onDelete { offsets in
                 Task {

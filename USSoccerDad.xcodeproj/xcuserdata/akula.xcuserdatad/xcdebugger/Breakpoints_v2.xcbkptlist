@@ -32,7 +32,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "94"
             endingLineNumber = "94"
-            landmarkName = "startGame(gameId:config:intensity:availablePlayerIds:)"
+            landmarkName = "handleForeground()"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>

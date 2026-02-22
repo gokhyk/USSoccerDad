@@ -11,6 +11,7 @@ import SwiftUI
 // MARK: - Theme Protocol
 protocol Theme {
     var name: String { get }
+    var isDark: Bool { get }
     var primary: Color { get }
     var primaryLight: Color { get }
     var primaryDark: Color { get }
@@ -30,6 +31,10 @@ protocol Theme {
     var trafficGreen: Color { get }
     var trafficOrange: Color { get }
     var trafficRed: Color { get }
+}
+
+extension Theme {
+    var isDark: Bool { false }
 }
 
 // MARK: - Soccer Field Theme (Original)
@@ -122,7 +127,8 @@ struct SunsetOrangeTheme: Theme {
 // MARK: - Midnight Dark Theme
 struct MidnightDarkTheme: Theme {
     let name = "Midnight"
-    
+    let isDark = true
+
     let primary = Color(red: 0.40, green: 0.60, blue: 0.95)      // Bright Blue
     let primaryLight = Color(red: 0.50, green: 0.70, blue: 1.00)
     let primaryDark = Color(red: 0.30, green: 0.50, blue: 0.85)
@@ -248,6 +254,10 @@ class ThemeManager: ObservableObject {
 extension ThemeManager {
     var colors: ThemeColors {
         ThemeColors(theme: currentTheme)
+    }
+
+    var colorScheme: ColorScheme {
+        currentTheme.isDark ? .dark : .light
     }
 }
 

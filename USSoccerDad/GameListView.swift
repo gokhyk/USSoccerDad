@@ -21,7 +21,7 @@ struct GameListView: View {
         List {
             if games.isEmpty {
                 Text("No games yet. Tap + to add one.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(themeManager.colors.textSecondary)
             } else {
                 ForEach(games) { game in
                     NavigationLink {
@@ -33,7 +33,7 @@ struct GameListView: View {
 
                             Text(dateString(for: game.date))
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(themeManager.colors.textSecondary)
                         }
                     }
                 }

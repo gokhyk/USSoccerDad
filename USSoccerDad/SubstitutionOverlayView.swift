@@ -23,11 +23,11 @@ struct SubstitutionOverlayView: View {
     
     var countdownColor: Color {
         if secondsUntilSub > 30 {
-            return .green
+            return themeManager.colors.success
         } else if secondsUntilSub > 15 {
-            return .orange
+            return themeManager.colors.warning
         } else {
-            return .red
+            return themeManager.colors.error
         }
     }
     
@@ -51,53 +51,64 @@ struct SubstitutionOverlayView: View {
             .background(countdownColor)
             .cornerRadius(20)
             
-            // Players out
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Coming Out")
-                    .font(.headline)
-                    .foregroundColor(.red)
-                
-                ForEach(playersOut, id: \.id) { player in
-                    HStack {
-                        Image(systemName: "arrow.down.circle.fill")
-                            .foregroundColor(.red)
-                        Text(player.playerName)
-                            .font(.body)
-                        Spacer()
-                        Text(player.formattedContinuousTime)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+            // Substitution pairs
+            VStack(spacing: 10) {
+                ForEach(Array(zip(playersOut, playersIn).enumerated()), id: \.offset) { _, pair in
+                    let (out, inn) = pair
+                    HStack(spacing: 0) {
+                        // In player (green, left) — arrow points from here →
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .foregroundColor(themeManager.colors.success)
+                                .font(.title2)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(inn.playerName)
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(themeManager.colors.success)
+                                    .lineLimit(1)
+                                Text(inn.formattedSecondsPlayed)
+                                    .font(.caption)
+                                    .foregroundColor(themeManager.colors.success.opacity(0.7))
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Image(systemName: "arrow.right")
+                            .font(.headline)
+                            .foregroundColor(themeManager.colors.textSecondary)
+                            .padding(.horizontal, 8)
+
+                        // Out player (red, right) — arrow points to here
+                        HStack(spacing: 8) {
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text(out.playerName)
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(themeManager.colors.error)
+                                    .lineLimit(1)
+                                Text(out.formattedContinuousTime)
+                                    .font(.caption)
+                                    .foregroundColor(themeManager.colors.error.opacity(0.7))
+                            }
+                            Image(systemName: "arrow.down.circle.fill")
+                                .foregroundColor(themeManager.colors.error)
+                                .font(.title2)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                     }
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(
+                        LinearGradient(
+                            colors: [themeManager.colors.success.opacity(0.08), themeManager.colors.error.opacity(0.08)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(12)
                 }
             }
-            .padding()
-            .background(Color.red.opacity(0.1))
-            .cornerRadius(12)
-            
-            // Players in
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Coming In")
-                    .font(.headline)
-                    .foregroundColor(.green)
-                
-                ForEach(playersIn, id: \.id) { player in
-                    HStack {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .foregroundColor(.green)
-                        Text(player.playerName)
-                            .font(.body)
-                        Spacer()
-                        Text(player.formattedSecondsPlayed)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.vertical, 4)
-                }
-            }
-            .padding()
-            .background(Color.green.opacity(0.1))
-            .cornerRadius(12)
             
             Spacer()
             
@@ -113,7 +124,7 @@ struct SubstitutionOverlayView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.blue)
+                    .background(themeManager.colors.primary)
                     .foregroundColor(.white)
                     .cornerRadius(12)
                 }

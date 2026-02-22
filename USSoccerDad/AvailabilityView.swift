@@ -32,7 +32,7 @@ struct AvailabilityView: View {
             List {
                 if let errorMessage {
                     Text(errorMessage)
-                        .foregroundColor(.red)
+                        .foregroundColor(themeManager.colors.error)
                 }
 
                 Section {
@@ -46,7 +46,7 @@ struct AvailabilityView: View {
                     
                     Text(intensity.description)
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(themeManager.colors.textSecondary)
                         .padding(.top, 4)
                 }
                 
@@ -121,7 +121,7 @@ struct AvailabilityView: View {
             )
         } else {
             Text("Game not found")
-                .foregroundColor(.red)
+                .foregroundColor(themeManager.colors.error)
         }
     }
 

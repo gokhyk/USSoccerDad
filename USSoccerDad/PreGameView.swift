@@ -38,78 +38,93 @@ struct PreGameView: View {
 //                    .foregroundColor(themeManager.colors.textSecondary)  // ← CHANGE
                 
                 List {
-                    Section("Starters") {
+                    Section(header: Text("Starters").foregroundColor(themeManager.colors.textSecondary)) {
                         ForEach(session.playersOnField.sorted(by: { $0.playerName < $1.playerName })) { player in
                             HStack {
                                 Text(player.playerName)
                                     .font(.headline)
-                                    .foregroundColor(themeManager.colors.textPrimary)  // ← ADD
-                                
+                                    .foregroundColor(themeManager.colors.textPrimary)
                                 Spacer()
-                                
                                 Text("Season: \(formatMinutes(player.seasonSecondsBeforeGame))")
                                     .font(.caption)
-                                    .foregroundColor(themeManager.colors.textSecondary)  // ← CHANGE
+                                    .foregroundColor(themeManager.colors.textSecondary)
                             }
+                            .listRowBackground(themeManager.colors.surface)
                         }
                     }
-                    
-                    Section("On Bench") {
-                        ForEach(session.playersOffField.sorted(by: { $0.playerName < $1.playerName })) { player in
-                            HStack {
-                                Text(player.playerName)
-                                    .foregroundColor(themeManager.colors.textSecondary)  // ← CHANGE
-                                
-                                Spacer()
-                                
-                                Text("Season: \(formatMinutes(player.seasonSecondsBeforeGame))")
-                                    .font(.caption)
-                                    .foregroundColor(themeManager.colors.textTertiary)  // ← CHANGE
-                            }
-                        }
-                    }
-                    
-                    if !absentPlayers.isEmpty {
-                        Section("Absent Players") {
-                            ForEach(absentPlayers.sorted(by: { $0.playerName < $1.playerName })) { player in
-                                HStack {
+
+                    Section(header: Text("On Bench (\(session.playersOffField.count))").foregroundColor(themeManager.colors.textSecondary)) {
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                            ForEach(session.playersOffField.sorted(by: { $0.playerName < $1.playerName })) { player in
+                                VStack(alignment: .leading, spacing: 4) {
                                     Text(player.playerName)
-                                        .foregroundColor(themeManager.colors.error)  // ← CHANGE
-                                    
-                                    Spacer()
-                                    
-                                    Button("Mark Present") {
-                                        viewModel.markPlayerPresent(playerId: player.id)
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(themeManager.colors.textSecondary)
+                                        .lineLimit(1)
+                                    Text("Season: \(formatMinutes(player.seasonSecondsBeforeGame))")
+                                        .font(.caption2)
+                                        .foregroundColor(themeManager.colors.textTertiary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(8)
+                                .background(themeManager.colors.surfaceElevated)
+                                .cornerRadius(8)
+                            }
+                        }
+                        .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(themeManager.colors.surface)
+                    }
+
+                    if !absentPlayers.isEmpty {
+                        Section(header: Text("Absent (\(absentPlayers.count))").foregroundColor(themeManager.colors.error)) {
+                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                                ForEach(absentPlayers.sorted(by: { $0.playerName < $1.playerName })) { player in
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(player.playerName)
+                                            .font(.subheadline)
+                                            .foregroundColor(themeManager.colors.error)
+                                            .lineLimit(1)
+                                        Button("Mark Present") {
+                                            viewModel.markPlayerPresent(playerId: player.id)
+                                        }
+                                        .font(.caption2)
+                                        .buttonStyle(.bordered)
+                                        .tint(themeManager.colors.success)
                                     }
-                                    .font(.caption)
-                                    .buttonStyle(.bordered)
-                                    .tint(themeManager.colors.success)  // ← CHANGE
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(8)
+                                    .background(themeManager.colors.error.opacity(0.08))
+                                    .cornerRadius(8)
                                 }
                             }
+                            .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(themeManager.colors.surface)
                         }
                     }
-                    
+
                     if !playersLeftEarly.isEmpty {
-                        Section("Left Early") {
+                        Section(header: Text("Left Early").foregroundColor(themeManager.colors.warning)) {
                             ForEach(playersLeftEarly.sorted(by: { $0.playerName < $1.playerName })) { player in
                                 HStack {
                                     Text(player.playerName)
-                                        .foregroundColor(themeManager.colors.warning)  // ← CHANGE
+                                        .foregroundColor(themeManager.colors.warning)
                                         .strikethrough()
-                                    
                                     Spacer()
-                                    
                                     Text(player.formattedSecondsPlayed)
                                         .font(.caption)
-                                        .foregroundColor(themeManager.colors.textSecondary)  // ← CHANGE
+                                        .foregroundColor(themeManager.colors.textSecondary)
                                 }
+                                .listRowBackground(themeManager.colors.surface)
                             }
                         }
                     }
                 }
-                .listStyle(.insetGrouped)  // ← ADD for better appearance
-                .scrollContentBackground(.hidden)  // ← ADD
-                .background(themeManager.colors.background)  // ← ADD
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
+                .background(themeManager.colors.background)
                 
                 Spacer()
                 

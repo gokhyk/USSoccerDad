@@ -63,7 +63,7 @@ struct AddEditPlayerView: View {
             if showValidationError {
                 Section {
                     Text("Please enter a name.")
-                        .foregroundColor(.red)
+                        .foregroundColor(themeManager.colors.error)
                 }
             }
         }

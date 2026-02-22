@@ -23,7 +23,8 @@ final class InMemoryPlayerRepository: PlayerRepository {
     // MARK: - PlayerRepository
 
     func listPlayers(teamId: UUID, search: String?) async throws -> [Player] {
-        // Work on the in-memory cache; it's already loaded from storage
+        // Reload from storage so changes saved by other repo instances (e.g. GameViewModel) are visible
+        loadFromStorage()
         let allForTeam = players.values.filter { $0.teamId == teamId }
 
         guard let q = search?.lowercased(), !q.isEmpty else {

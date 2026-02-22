@@ -11,18 +11,27 @@ struct GameView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @StateObject var viewModel: GameViewModel
     @EnvironmentObject var gameStore: GameStore
-    
+
     let game: Game
-    
+
     @Environment(\.dismiss) var dismiss
-    
+    @State private var showExitConfirmation = false
+
     var body: some View {
         Group {
             if let session = viewModel.session {
                 switch session.phase {
                 case .preGame:
                     PreGameView(viewModel: viewModel)
-                    
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarLeading) {
+                                Button("Exit") {
+                                    showExitConfirmation = true
+                                }
+                                .foregroundColor(themeManager.colors.error)
+                            }
+                        }
+
                 case .running:
                     ActiveGameView(viewModel: viewModel)
                         .toolbar {
@@ -36,7 +45,7 @@ struct GameView: View {
                                 }
                             }
                         }
-                    
+
                 case .pendingSubstitution(let plan):
                     SubstitutionOverlayView(viewModel: viewModel, plan: plan)
                         .toolbar {
@@ -48,7 +57,7 @@ struct GameView: View {
                                 }
                             }
                         }
-                    
+
                 case .periodBreak(let periodNumber, let breakSeconds):
                     PeriodBreakView(
                         viewModel: viewModel,
@@ -65,11 +74,10 @@ struct GameView: View {
                             }
                         }
                     }
-                    
+
                 case .postGame:
                     PostGameView(viewModel: viewModel, game: game)
                         .onDisappear {
-                            // Return to availability/game list
                             dismiss()
                         }
                 }
@@ -81,10 +89,16 @@ struct GameView: View {
                 }
             }
         }
+        .navigationBarBackButtonHidden(viewModel.session != nil)
         .navigationTitle(game.opponent)
         .navigationBarTitleDisplayMode(.inline)
+        .alert("Exit Pre-Game?", isPresented: $showExitConfirmation) {
+            Button("Exit", role: .destructive) { dismiss() }
+            Button("Stay", role: .cancel) { }
+        } message: {
+            Text("The game setup will be lost. You can restart it from Availability.")
+        }
         .task {
-            // Initialize game session when view appears
             if viewModel.session == nil, let pending = viewModel.pendingGameConfig {
                 await viewModel.loadPlayers()
                 viewModel.startGame(

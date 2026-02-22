@@ -67,7 +67,7 @@ struct AddEditGameView: View {
             if showValidationError {
                 Section {
                     Text("Please enter at least an opponent or some description.")
-                        .foregroundColor(.red)
+                        .foregroundColor(themeManager.colors.error)
                 }
             }
         }
