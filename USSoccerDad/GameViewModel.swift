@@ -481,6 +481,9 @@ class GameViewModel: ObservableObject {
             }
         }
         
+        // Save final score
+        gameStore.updateScore(gameId: session.gameId, ourScore: session.ourScore, opponentScore: session.opponentScore)
+
         // Mark the game as completed so it cannot be restarted
         gameStore.markCompleted(gameId: session.gameId)
 

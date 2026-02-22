@@ -27,13 +27,28 @@ struct GameListView: View {
                     NavigationLink {
                         GameDetailView(gameId: game.id, team: team, playerRepo: InMemoryPlayerRepository())
                     } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(game.opponent.isEmpty ? "Opponent TBD" : game.opponent)
-                                .font(.headline)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(game.opponent.isEmpty ? "Opponent TBD" : game.opponent)
+                                    .font(.headline)
 
-                            Text(dateString(for: game.date))
-                                .font(.caption)
-                                .foregroundStyle(themeManager.colors.textSecondary)
+                                Text(dateString(for: game.date))
+                                    .font(.caption)
+                                    .foregroundStyle(themeManager.colors.textSecondary)
+                            }
+
+                            Spacer()
+
+                            if game.isCompleted {
+                                Text("\(game.ourScore) – \(game.opponentScore)")
+                                    .font(.headline)
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(themeManager.colors.textPrimary)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(themeManager.colors.surface)
+                                    .cornerRadius(8)
+                            }
                         }
                     }
                 }

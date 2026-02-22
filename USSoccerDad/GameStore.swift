@@ -45,6 +45,13 @@ final class GameStore: ObservableObject {
         persist()
     }
 
+    func updateScore(gameId: UUID, ourScore: Int, opponentScore: Int) {
+        guard let index = games.firstIndex(where: { $0.id == gameId }) else { return }
+        games[index].ourScore = ourScore
+        games[index].opponentScore = opponentScore
+        persist()
+    }
+
     func markCompleted(gameId: UUID) {
         guard let index = games.firstIndex(where: { $0.id == gameId }) else { return }
         games[index].isCompleted = true

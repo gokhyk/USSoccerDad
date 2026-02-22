@@ -33,7 +33,7 @@ struct GameView: View {
                         }
 
                 case .running:
-                    ActiveGameView(viewModel: viewModel)
+                    ActiveGameView(viewModel: viewModel, opponentName: game.opponent)
                         .toolbar {
                             ToolbarItem(placement: .navigationBarTrailing) {
                                 Menu {

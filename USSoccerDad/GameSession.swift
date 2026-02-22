@@ -31,6 +31,10 @@ class GameSession: ObservableObject {
     
     /// Planned substitutions for current period
     @Published var substitutionPlans: [SubstitutionPlan] = []
+
+    /// Live score — updated by coach tapping +/− during the game
+    @Published var ourScore: Int = 0
+    @Published var opponentScore: Int = 0
     
     /// Starting lineup (player IDs)
     var starterIds: Set<UUID> = []

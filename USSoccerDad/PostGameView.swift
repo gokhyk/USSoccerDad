@@ -17,6 +17,8 @@ struct PostGameView: View {
     @State private var showShareSheet = false
     @State private var shareText = ""
     @State private var isSaving = false
+    @State private var ourScore: Int = 0
+    @State private var opponentScore: Int = 0
     
     var session: GameSession? {
         viewModel.session
@@ -42,21 +44,88 @@ struct PostGameView: View {
                 .font(.largeTitle)
                 .fontWeight(.bold)
                 .padding()
-            
+
+            // Score entry
+            VStack(spacing: 8) {
+                Text(game.opponent.isEmpty ? "Final Score" : "vs \(game.opponent)")
+                    .font(.subheadline)
+                    .foregroundColor(themeManager.colors.textSecondary)
+
+                HStack(spacing: 0) {
+                    // Our score
+                    HStack(spacing: 16) {
+                        Button { ourScore = max(0, ourScore - 1) } label: {
+                            Image(systemName: "minus.circle")
+                                .font(.title)
+                                .foregroundColor(themeManager.colors.textTertiary)
+                        }
+                        .buttonStyle(.plain)
+
+                        VStack(spacing: 2) {
+                            Text("\(ourScore)")
+                                .font(.system(size: 52, weight: .bold, design: .rounded))
+                                .foregroundColor(themeManager.colors.textPrimary)
+                            Text("Us")
+                                .font(.caption)
+                                .foregroundColor(themeManager.colors.textSecondary)
+                        }
+
+                        Button { ourScore += 1 } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title)
+                                .foregroundColor(themeManager.colors.primary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .frame(maxWidth: .infinity)
+
+                    Text("–")
+                        .font(.largeTitle)
+                        .foregroundColor(themeManager.colors.textTertiary)
+
+                    // Opponent score
+                    HStack(spacing: 16) {
+                        Button { opponentScore = max(0, opponentScore - 1) } label: {
+                            Image(systemName: "minus.circle")
+                                .font(.title)
+                                .foregroundColor(themeManager.colors.textTertiary)
+                        }
+                        .buttonStyle(.plain)
+
+                        VStack(spacing: 2) {
+                            Text("\(opponentScore)")
+                                .font(.system(size: 52, weight: .bold, design: .rounded))
+                                .foregroundColor(themeManager.colors.textPrimary)
+                            Text(game.opponent.isEmpty ? "Opp" : game.opponent)
+                                .font(.caption)
+                                .foregroundColor(themeManager.colors.textSecondary)
+                                .lineLimit(1)
+                        }
+
+                        Button { opponentScore += 1 } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title)
+                                .foregroundColor(themeManager.colors.error)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .padding()
+            .background(themeManager.colors.surface)
+            .cornerRadius(16)
+            .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+            .padding(.horizontal)
+
             if let session = session {
                 // Game summary
                 VStack(spacing: 8) {
-                    Text(game.opponent)
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    
                     Text("\(session.config.periods) × \(session.config.minutesPerPeriod) min")
                         .font(.subheadline)
                         .foregroundColor(themeManager.colors.textSecondary)
                 }
-                .padding()
-                .background(themeManager.colors.primary.opacity(0.1))
-                .cornerRadius(12)
+                .padding(.vertical, 4)
                 
                 // Player statistics
                 List {
@@ -141,6 +210,10 @@ struct PostGameView: View {
         }
         .navigationTitle("Final Stats")
         .navigationBarBackButtonHidden(true)
+        .onAppear {
+            ourScore = viewModel.session?.ourScore ?? 0
+            opponentScore = viewModel.session?.opponentScore ?? 0
+        }
         .sheet(isPresented: $showShareSheet) {
             if #available(iOS 16.0, *) {
                 ShareSheet(activityItems: [shareText])
@@ -160,14 +233,15 @@ struct PostGameView: View {
     
     private func saveGame() {
         guard let session = session else { return }
-        
+
+        // Write the (possibly adjusted) score back into the session before saving
+        session.ourScore = ourScore
+        session.opponentScore = opponentScore
+
         isSaving = true
-        
         Task {
             await viewModel.completeGame(game: game, gameStore: gameStore)
             isSaving = false
-            
-            // Navigation back will be handled by the parent view
         }
     }
 }

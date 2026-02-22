@@ -10,6 +10,7 @@ import SwiftUI
 struct ActiveGameView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @ObservedObject var viewModel: GameViewModel
+    let opponentName: String
 
     var session: GameSession? { viewModel.session }
 
@@ -72,6 +73,79 @@ struct ActiveGameView: View {
                 .padding(.horizontal)
                 .padding(.vertical, 8)
                 .background(themeManager.colors.surface.opacity(0.15))
+
+                // Score row
+                HStack(spacing: 0) {
+                    // Our score
+                    HStack(spacing: 14) {
+                        Button {
+                            session.ourScore = max(0, session.ourScore - 1)
+                        } label: {
+                            Image(systemName: "minus.circle")
+                                .font(.title2)
+                                .foregroundColor(themeManager.colors.textTertiary)
+                        }
+                        .buttonStyle(.plain)
+
+                        VStack(spacing: 1) {
+                            Text("\(session.ourScore)")
+                                .font(.system(size: 38, weight: .bold, design: .rounded))
+                                .foregroundColor(themeManager.colors.textPrimary)
+                            Text("Us")
+                                .font(.caption2)
+                                .foregroundColor(themeManager.colors.textSecondary)
+                        }
+
+                        Button {
+                            session.ourScore += 1
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(themeManager.colors.primary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .frame(maxWidth: .infinity)
+
+                    Text("–")
+                        .font(.title)
+                        .foregroundColor(themeManager.colors.textTertiary)
+
+                    // Opponent score
+                    HStack(spacing: 14) {
+                        Button {
+                            session.opponentScore = max(0, session.opponentScore - 1)
+                        } label: {
+                            Image(systemName: "minus.circle")
+                                .font(.title2)
+                                .foregroundColor(themeManager.colors.textTertiary)
+                        }
+                        .buttonStyle(.plain)
+
+                        VStack(spacing: 1) {
+                            Text("\(session.opponentScore)")
+                                .font(.system(size: 38, weight: .bold, design: .rounded))
+                                .foregroundColor(themeManager.colors.textPrimary)
+                            Text(opponentName.isEmpty ? "Opp" : opponentName)
+                                .font(.caption2)
+                                .foregroundColor(themeManager.colors.textSecondary)
+                                .lineLimit(1)
+                        }
+
+                        Button {
+                            session.opponentScore += 1
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(themeManager.colors.error)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 10)
+                .background(themeManager.colors.surface.opacity(0.08))
 
                 Divider()
 

@@ -70,11 +70,36 @@ struct GameDetailView: View {
 //                        .buttonStyle(.borderedProminent)
 //                    }
                     
-                    Section {
-                        if g.isCompleted {
+                    if g.isCompleted {
+                        Section(header: Text("Final Score")) {
+                            HStack {
+                                Spacer()
+                                Text("Us")
+                                    .font(.subheadline)
+                                    .foregroundColor(themeManager.colors.textSecondary)
+                                Text("\(g.ourScore)")
+                                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                                    .foregroundColor(themeManager.colors.textPrimary)
+                                    .frame(minWidth: 50, alignment: .center)
+                                Text("–")
+                                    .font(.title)
+                                    .foregroundColor(themeManager.colors.textTertiary)
+                                Text("\(g.opponentScore)")
+                                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                                    .foregroundColor(themeManager.colors.textPrimary)
+                                    .frame(minWidth: 50, alignment: .center)
+                                Text(g.opponent.isEmpty ? "Opp" : g.opponent)
+                                    .font(.subheadline)
+                                    .foregroundColor(themeManager.colors.textSecondary)
+                                    .lineLimit(1)
+                                Spacer()
+                            }
+                            .padding(.vertical, 8)
                             Label("Game completed", systemImage: "checkmark.seal.fill")
                                 .foregroundColor(themeManager.colors.success)
-                        } else {
+                        }
+                    } else {
+                        Section {
                             NavigationLink("Availability & Start Game") {
                                 AvailabilityView(gameId: g.id, team: team)
                             }
