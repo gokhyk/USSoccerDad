@@ -21,28 +21,64 @@ struct SubstitutionEngine {
     ) -> SubstitutionPlan {
         let playersOnField = session.playersOnField
         let playersOffField = session.playersOffField
-        
-        // For now, substitute half the field (rounded down)
-        // This can be made configurable later
-        let numberOfSubs = max(1, playersOnField.count / 2)
-        
-        // Select players to come OUT: prioritize by continuous time, then game time, then season time
+
+        guard !playersOnField.isEmpty, !playersOffField.isEmpty else {
+            return SubstitutionPlan(scheduledTime: scheduledTime)
+        }
+
+        // Decide how many players to swap based on actual playing-time gaps
+        let numberOfSubs = calculateOptimalSubCount(
+            playersOnField: playersOnField,
+            playersOffField: playersOffField
+        )
+
         let playersOut = selectPlayersToSubOut(
             playersOnField: playersOnField,
             count: numberOfSubs
         )
-        
-        // Select players to come IN: prioritize by lowest game time, then lowest season time
+
         let playersIn = selectPlayersToSubIn(
             playersOffField: playersOffField,
             count: numberOfSubs
         )
-        
+
         return SubstitutionPlan(
             scheduledTime: scheduledTime,
             playersOut: playersOut.map { $0.id },
             playersIn: playersIn.map { $0.id }
         )
+    }
+
+    /// Determine how many players should swap to best equalize playing time.
+    ///
+    /// Works by pairing the most-overdue on-field player with the most-rested
+    /// bench player, then the second-most overdue with the second-most rested, etc.
+    /// Each pair where the gap exceeds the threshold justifies one substitution.
+    /// Result is clamped to 1–5 (and limited by how many players are available).
+    private static func calculateOptimalSubCount(
+        playersOnField: [PlayerGameStats],
+        playersOffField: [PlayerGameStats]
+    ) -> Int {
+        // A gap of more than 90 seconds between the on-field player's total time
+        // and the bench player's total time justifies swapping that pair.
+        let threshold = 90
+
+        let sortedOut = playersOnField.sorted { $0.secondsPlayed > $1.secondsPlayed }
+        let sortedIn  = playersOffField.sorted { $0.secondsPlayed < $1.secondsPlayed }
+
+        let maxPossible = min(sortedOut.count, sortedIn.count, 5)
+
+        var count = 0
+        for i in 0..<maxPossible {
+            let gap = sortedOut[i].secondsPlayed - sortedIn[i].secondsPlayed
+            if gap > threshold {
+                count += 1
+            } else {
+                break   // once the gap is small the remaining pairs need it even less
+            }
+        }
+
+        return max(1, count)
     }
     
     /// Select players to substitute out based on fatigue and playing time
