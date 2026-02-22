@@ -481,9 +481,9 @@ class GameViewModel: ObservableObject {
             }
         }
         
-        // Save completed game record to game store
-        // TODO: Add CompletedGameRecord storage to GameStore
-        
+        // Mark the game as completed so it cannot be restarted
+        gameStore.markCompleted(gameId: session.gameId)
+
         // Clear session
         self.session = nil
     }

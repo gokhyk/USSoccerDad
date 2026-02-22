@@ -24,6 +24,9 @@ struct Game: Identifiable, Codable, Equatable {
 
     // playerId -> isAvailable
     var availability: [UUID: Bool] = [:]
+
+    /// Set to true after Save & Exit — prevents the game from being restarted
+    var isCompleted: Bool = false
 }
 
 

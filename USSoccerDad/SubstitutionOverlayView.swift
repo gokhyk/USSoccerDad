@@ -33,24 +33,45 @@ struct SubstitutionOverlayView: View {
     
     var body: some View {
         VStack(spacing: 24) {
-            // Countdown timer
-            VStack(spacing: 8) {
-                Text("Substitution in")
+            // Countdown timer — tap to complete early
+            let countdownContent = VStack(spacing: 8) {
+                Text(secondsUntilSub > 0 ? "Substitution in" : "Make Substitution")
                     .font(.headline)
                     .foregroundColor(.white)
-                
-                Text("\(secondsUntilSub)")
-                    .font(.system(size: 80, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
-                
-                Text("seconds")
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.8))
+
+                if secondsUntilSub > 0 {
+                    Text("\(secondsUntilSub)")
+                        .font(.system(size: 80, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                    Text("seconds")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.8))
+                } else {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 60))
+                        .foregroundColor(.white)
+                }
+
+                if !viewModel.autoCompleteSubstitutions {
+                    Text("Tap to complete")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                        .padding(.top, 4)
+                }
             }
             .padding(32)
             .background(countdownColor)
             .cornerRadius(20)
-            
+
+            if viewModel.autoCompleteSubstitutions {
+                countdownContent
+            } else {
+                Button(action: { viewModel.executeSubstitution(plan: plan) }) {
+                    countdownContent
+                }
+                .buttonStyle(.plain)
+            }
+
             // Substitution pairs
             VStack(spacing: 10) {
                 ForEach(Array(zip(playersOut, playersIn).enumerated()), id: \.offset) { _, pair in
@@ -111,25 +132,6 @@ struct SubstitutionOverlayView: View {
             }
             
             Spacer()
-            
-            // Manual complete button (if auto-complete is off)
-            if !viewModel.autoCompleteSubstitutions && secondsUntilSub <= 0 {
-                Button(action: {
-                    viewModel.executeSubstitution(plan: plan)
-                }) {
-                    HStack {
-                        Image(systemName: "checkmark.circle.fill")
-                        Text("Substitution Complete")
-                            .fontWeight(.semibold)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(themeManager.colors.primary)
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
-                }
-                .padding()
-            }
         }
         .padding()
     }

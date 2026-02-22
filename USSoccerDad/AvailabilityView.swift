@@ -26,7 +26,16 @@ struct AvailabilityView: View {
     @State private var showGameView = false
     @State private var availableIds: Set<UUID> = []
     @State private var intensity: SubstitutionIntensity = .balanced
+    @State private var showDateMismatchAlert = false
+
+    @Environment(\.dismiss) private var dismiss
     
+    /// True when current time is more than 2 hours away from the scheduled game time
+    private var isDateMismatch: Bool {
+        guard let game = gameStore.game(withId: gameId) else { return false }
+        return abs(game.date.timeIntervalSinceNow) > 2 * 3600
+    }
+
     var body: some View {
         ZStack {
             List {
@@ -51,10 +60,19 @@ struct AvailabilityView: View {
                 }
                 
                 Section {
-                    Button("Start Game") {
-                        showGameView = true
+                    if gameStore.game(withId: gameId)?.isCompleted == true {
+                        Label("This game has already been played", systemImage: "checkmark.seal.fill")
+                            .foregroundColor(themeManager.colors.success)
+                    } else {
+                        Button("Start Game") {
+                            if isDateMismatch {
+                                showDateMismatchAlert = true
+                            } else {
+                                showGameView = true
+                            }
+                        }
+                        .disabled(availableIds.isEmpty)
                     }
-                    .disabled(availableIds.isEmpty)
                 }
                 
                 Section("Player Availability") {
@@ -89,6 +107,14 @@ struct AvailabilityView: View {
                 save()
             }
             .navigationTitle("Availability")
+            .alert("Wrong Date/Time", isPresented: $showDateMismatchAlert) {
+                Button("Start Anyway", role: .destructive) { showGameView = true }
+                Button("Adjust Date & Time", role: .cancel) { dismiss() }
+            } message: {
+                if let game = gameStore.game(withId: gameId) {
+                    Text("This game is scheduled for \(game.date.formatted(.dateTime.weekday(.wide).month().day().hour().minute())). Do you want to start anyway, or go back and adjust the date and time?")
+                }
+            }
             
             // Hidden NavigationLink
             NavigationLink(

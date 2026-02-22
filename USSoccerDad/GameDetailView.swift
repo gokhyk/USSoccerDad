@@ -71,10 +71,14 @@ struct GameDetailView: View {
 //                    }
                     
                     Section {
-                        NavigationLink("Availability & Start Game") {
-                            AvailabilityView(gameId: g.id, team: team)//, playerRepo: playerRepo)
+                        if g.isCompleted {
+                            Label("Game completed", systemImage: "checkmark.seal.fill")
+                                .foregroundColor(themeManager.colors.success)
+                        } else {
+                            NavigationLink("Availability & Start Game") {
+                                AvailabilityView(gameId: g.id, team: team)
+                            }
                         }
-                        
                     }
                     
 //                    Section(header: Text("Calendar")) {
