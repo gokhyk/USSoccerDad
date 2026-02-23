@@ -23,7 +23,6 @@ struct AddEditGameView: View {
     @State private var notes: String = ""
     @State private var date: Date = Date()
     @State private var minutesPerPeriod: Int = 25
-    @State private var numberOfPeriods: Int = 4
     @State private var playersOnField: Int = 7
     @State private var showValidationError = false
 
@@ -50,10 +49,13 @@ struct AddEditGameView: View {
                         value: $minutesPerPeriod,
                         in: 5...60)
 
-                Stepper("Periods per Game: \(numberOfPeriods)",
-                        value: $numberOfPeriods,
-                        in: 2...4)
-                
+                HStack {
+                    Text("Periods")
+                    Spacer()
+                    Text("\(team.numberOfPeriods)")
+                        .foregroundColor(.secondary)
+                }
+
                 Stepper("Players on Field: \(playersOnField)",
                         value: $playersOnField,
                         in: 3...11)
@@ -111,7 +113,7 @@ struct AddEditGameView: View {
         game.date = date
         game.minutesPerPeriod = minutesPerPeriod
         game.playersOnField = playersOnField
-        game.numberOfPeriods = numberOfPeriods
+        game.numberOfPeriods = team.numberOfPeriods
 //        for i in 0...self.numberOfPeriods * 2 {
 //            if (i == 0 || i == self.numberOfPeriods * 2) {
 //                game.durations[i] = 0

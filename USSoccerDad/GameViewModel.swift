@@ -316,7 +316,7 @@ class GameViewModel: ObservableObject {
 
         // Check if it's time to execute substitution
         if session.periodElapsedSeconds >= plan.scheduledTime {
-            if autoCompleteSubstitutions {
+            if autoCompleteSubstitutions && forcedSubProposal == nil {
                 executeSubstitution(plan: plan)
             }
             // Otherwise wait for coach to press "Sub Complete"
@@ -345,6 +345,7 @@ class GameViewModel: ObservableObject {
     }
     
     private func checkForUpcomingSubstitution() {
+        guard forcedSubProposal == nil else { return }
         guard let session = session else { return }
         
         // Find next scheduled substitution within 60 seconds

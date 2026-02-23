@@ -52,8 +52,8 @@ struct SubstitutionOverlayView: View {
                         .foregroundColor(.white)
                 }
 
-                if !viewModel.autoCompleteSubstitutions {
-                    Text("Tap to complete")
+                if secondsUntilSub > 0 {
+                    Text(viewModel.autoCompleteSubstitutions ? "Tap to complete early · or auto" : "Tap to complete")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
                         .padding(.top, 4)
@@ -63,14 +63,10 @@ struct SubstitutionOverlayView: View {
             .background(countdownColor)
             .cornerRadius(20)
 
-            if viewModel.autoCompleteSubstitutions {
+            Button(action: { viewModel.executeSubstitution(plan: plan) }) {
                 countdownContent
-            } else {
-                Button(action: { viewModel.executeSubstitution(plan: plan) }) {
-                    countdownContent
-                }
-                .buttonStyle(.plain)
             }
+            .buttonStyle(.plain)
 
             // Substitution pairs
             VStack(spacing: 10) {
