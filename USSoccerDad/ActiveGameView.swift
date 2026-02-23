@@ -149,6 +149,76 @@ struct ActiveGameView: View {
 
                 Divider()
 
+                // Forced sub proposal banner
+                if let proposal = viewModel.forcedSubProposal {
+                    VStack(spacing: 6) {
+                        HStack {
+                            Label("FORCED SUB", systemImage: "arrow.left.arrow.right.circle.fill")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(themeManager.colors.warning)
+                            Spacer()
+                            if viewModel.autoCompleteSubstitutions && proposal.countdownSeconds > 0 {
+                                Text("Auto in \(proposal.countdownSeconds)s")
+                                    .font(.caption2)
+                                    .foregroundColor(themeManager.colors.textSecondary)
+                            }
+                        }
+                        HStack(spacing: 8) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Coming off")
+                                    .font(.caption2)
+                                    .foregroundColor(themeManager.colors.textTertiary)
+                                Text(proposal.playerOutName)
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(themeManager.colors.textPrimary)
+                            }
+                            Image(systemName: "arrow.right")
+                                .font(.caption)
+                                .foregroundColor(themeManager.colors.warning)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Going in")
+                                    .font(.caption2)
+                                    .foregroundColor(themeManager.colors.success)
+                                Text(proposal.proposedPlayerInName)
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(themeManager.colors.success)
+                            }
+                            Spacer()
+                            HStack(spacing: 8) {
+                                Button("Skip") {
+                                    viewModel.dismissForcedSub()
+                                }
+                                .font(.footnote)
+                                .foregroundColor(themeManager.colors.textTertiary)
+                                .buttonStyle(.plain)
+                                Button("Sub In") {
+                                    viewModel.confirmForcedSub()
+                                }
+                                .font(.footnote)
+                                .fontWeight(.semibold)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(themeManager.colors.success)
+                                .foregroundColor(.white)
+                                .cornerRadius(8)
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    .padding(12)
+                    .background(themeManager.colors.warning.opacity(0.12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .strokeBorder(themeManager.colors.warning.opacity(0.4), lineWidth: 1)
+                    )
+                    .cornerRadius(10)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                }
+
                 // All player sections — no scroll
                 VStack(alignment: .leading, spacing: 10) {
 
@@ -233,7 +303,8 @@ struct ActiveGameView: View {
                     .lineLimit(1)
                 Spacer(minLength: 2)
                 Button {
-                    viewModel.markPlayerLeftEarly(playerId: player.id)
+                    // X on field player = forced sub out (move to bench, propose replacement)
+                    viewModel.forcedSubOut(playerId: player.id)
                 } label: {
                     Image(systemName: "xmark.circle")
                         .foregroundColor(themeManager.colors.error)
@@ -265,7 +336,8 @@ struct ActiveGameView: View {
                     .lineLimit(1)
                 Spacer(minLength: 2)
                 Button {
-                    viewModel.markPlayerLeftEarly(playerId: player.id)
+                    // X on bench player = move to Absent (reversible via "Arrived")
+                    viewModel.markBenchPlayerAbsent(playerId: player.id)
                 } label: {
                     Image(systemName: "xmark.circle")
                         .foregroundColor(themeManager.colors.error)

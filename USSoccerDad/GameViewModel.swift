@@ -10,6 +10,16 @@ import SwiftUI
 import Combine
 import UIKit
 
+/// Represents a forced substitution initiated by the coach pressing X on a field player
+struct ForcedSubProposal {
+    let playerOutId: UUID
+    let playerOutName: String
+    let proposedPlayerInId: UUID
+    let proposedPlayerInName: String
+    /// Countdown seconds remaining (-1 = no auto-complete, 0+ = counting down)
+    var countdownSeconds: Int
+}
+
 @MainActor
 class GameViewModel: ObservableObject {
     let teamId: UUID
@@ -48,6 +58,9 @@ class GameViewModel: ObservableObject {
 
     // Speed multiplier for testing (1 = normal, 5 = 5x fast)
     @Published var speedMultiplier: Int = 1
+
+    // Forced substitution proposal (coach pressed X on a field player)
+    @Published var forcedSubProposal: ForcedSubProposal?
     
     // Pending game configuration (for delayed initialization)
     var pendingGameConfig: (gameId: UUID, config: GameConfig, intensity: SubstitutionIntensity, availablePlayerIds: Set<UUID>)?
@@ -270,12 +283,15 @@ class GameViewModel: ObservableObject {
         // Update absent players with expected time
         updateAbsentPlayerTimes()
         
+        // Tick forced sub countdown (if any)
+        tickForcedSubCountdown()
+
         // Check for period end
         if session.periodElapsedSeconds >= session.config.periodSeconds {
             handlePeriodEnd()
             return
         }
-        
+
         // Check for upcoming substitution
         checkForUpcomingSubstitution()
     }
@@ -294,7 +310,10 @@ class GameViewModel: ObservableObject {
         }
         
         updateAbsentPlayerTimes()
-        
+
+        // Tick forced sub countdown (if any)
+        tickForcedSubCountdown()
+
         // Check if it's time to execute substitution
         if session.periodElapsedSeconds >= plan.scheduledTime {
             if autoCompleteSubstitutions {
@@ -382,7 +401,10 @@ class GameViewModel: ObservableObject {
     
     private func handlePeriodEnd() {
         guard let session = session else { return }
-        
+
+        // Dismiss any pending forced sub proposal at period boundary
+        forcedSubProposal = nil
+
         stopTimer()
         
         // Reset continuous time for all players
@@ -444,15 +466,102 @@ class GameViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Forced Substitutions
+
+    /// Coach pressed X on a field player — move them to bench and propose a replacement.
+    func forcedSubOut(playerId: UUID) {
+        guard let session = session else { return }
+        guard let outIndex = session.playerStats.firstIndex(where: { $0.id == playerId }),
+              session.playerStats[outIndex].isOnField else { return }
+
+        // Move player off field to bench (keeps wasPresent=true, not leftEarly)
+        session.playerStats[outIndex].isOnField = false
+        session.playerStats[outIndex].continuousSecondsPlayed = 0
+
+        // Find best replacement: bench player with least playing time
+        let benchCandidates = session.playerStats.filter {
+            !$0.isOnField && $0.wasPresent && !$0.leftEarly && $0.id != playerId
+        }
+
+        guard let proposed = benchCandidates.min(by: { lhs, rhs in
+            if lhs.secondsPlayed != rhs.secondsPlayed { return lhs.secondsPlayed < rhs.secondsPlayed }
+            return lhs.totalSeasonSeconds < rhs.totalSeasonSeconds
+        }) else {
+            // No bench players available — player just sits on bench
+            return
+        }
+
+        forcedSubProposal = ForcedSubProposal(
+            playerOutId: playerId,
+            playerOutName: session.playerStats[outIndex].playerName,
+            proposedPlayerInId: proposed.id,
+            proposedPlayerInName: proposed.playerName,
+            countdownSeconds: autoCompleteSubstitutions ? 15 : -1
+        )
+    }
+
+    /// Execute the pending forced sub proposal (move proposed player onto field).
+    func confirmForcedSub() {
+        guard let proposal = forcedSubProposal, let session = session else { return }
+
+        // Verify proposed player is still available on bench
+        if let inIndex = session.playerStats.firstIndex(where: {
+            $0.id == proposal.proposedPlayerInId && !$0.isOnField && $0.wasPresent && !$0.leftEarly
+        }) {
+            session.playerStats[inIndex].isOnField = true
+        }
+
+        forcedSubProposal = nil
+    }
+
+    /// Dismiss the forced sub proposal without sending anyone on.
+    func dismissForcedSub() {
+        forcedSubProposal = nil
+    }
+
+    /// Tick forced sub auto-complete countdown; fires confirmForcedSub when it reaches zero.
+    private func tickForcedSubCountdown() {
+        guard autoCompleteSubstitutions,
+              var proposal = forcedSubProposal,
+              proposal.countdownSeconds > 0 else { return }
+
+        proposal.countdownSeconds = max(0, proposal.countdownSeconds - speedMultiplier)
+        forcedSubProposal = proposal
+
+        if proposal.countdownSeconds <= 0 {
+            confirmForcedSub()
+        }
+    }
+
     // MARK: - Late Arrivals
-    
+
     func markPlayerPresent(playerId: UUID) {
         guard let session = session else { return }
         session.markPlayerPresent(playerId: playerId)
     }
-    
+
+    // MARK: - Bench → Absent
+
+    /// Coach pressed X on a bench player — remove them from the available pool.
+    /// They appear in the Absent section and can be restored with "Arrived".
+    func markBenchPlayerAbsent(playerId: UUID) {
+        guard let session = session else { return }
+        guard let index = session.playerStats.firstIndex(where: { $0.id == playerId }),
+              !session.playerStats[index].isOnField,
+              session.playerStats[index].wasPresent,
+              !session.playerStats[index].leftEarly else { return }
+
+        // If this player was the proposed sub-in, dismiss the stale proposal
+        if forcedSubProposal?.proposedPlayerInId == playerId {
+            forcedSubProposal = nil
+        }
+
+        // Move to absent (reversible via "Arrived" button)
+        session.playerStats[index].wasPresent = false
+    }
+
     // MARK: - Early Departures
-    
+
     func markPlayerLeftEarly(playerId: UUID) {
         guard let session = session else { return }
         session.markPlayerLeftEarly(playerId: playerId)

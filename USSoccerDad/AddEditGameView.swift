@@ -112,17 +112,17 @@ struct AddEditGameView: View {
         game.minutesPerPeriod = minutesPerPeriod
         game.playersOnField = playersOnField
         game.numberOfPeriods = numberOfPeriods
-        for i in 0...self.numberOfPeriods * 2 {
-            if (i == 0 || i == self.numberOfPeriods * 2) {
-                game.durations[i] = 0
-            }
-            if (i == 1 || i == 3 || i == 5 || i == 7) {
-                game.durations[i] = game.minutesPerPeriod
-            }
-            if (i == 2 || i == 4 || i == 6) {
-                game.durations[i] = 5
-            }
-        }
+//        for i in 0...self.numberOfPeriods * 2 {
+//            if (i == 0 || i == self.numberOfPeriods * 2) {
+//                game.durations[i] = 0
+//            }
+//            if (i == 1 || i == 3 || i == 5 || i == 7) {
+//                game.durations[i] = game.minutesPerPeriod
+//            }
+//            if (i == 2 || i == 4 || i == 6) {
+//                game.durations[i] = 5
+//            }
+//        }
 
         onSave(game)
         dismiss()

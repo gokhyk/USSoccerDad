@@ -116,19 +116,20 @@ class GameSession: ObservableObject {
         return (totalGameTime * playersOnFieldCount) / presentCount
     }
     
-    /// Update absent player's statistics when they arrive late
+    /// Restore a player to the available pool (late arrival or returning from bench-absent).
     func markPlayerPresent(playerId: UUID) {
-        guard let index = playerStats.firstIndex(where: { $0.id == playerId }) else {
-            return
-        }
-        
+        guard let index = playerStats.firstIndex(where: { $0.id == playerId }) else { return }
+
         playerStats[index].wasPresent = true
-        playerStats[index].arrivedLate = true
-        playerStats[index].arrivalTime = totalElapsedSeconds
-        
-        // Credit them with expected time up to this point
-        let expectedSeconds = expectedSecondsForAbsentPlayers()
-        playerStats[index].secondsPlayed = expectedSeconds
+
+        // Only credit expected time for true late arrivals (no prior playing time).
+        // Players who were benched then temporarily marked absent keep their existing stats.
+        if playerStats[index].secondsPlayed == 0 {
+            playerStats[index].arrivedLate = true
+            playerStats[index].arrivalTime = totalElapsedSeconds
+            let expectedSeconds = expectedSecondsForAbsentPlayers()
+            playerStats[index].secondsPlayed = expectedSeconds
+        }
     }
     
     /// Mark a player as having left early
