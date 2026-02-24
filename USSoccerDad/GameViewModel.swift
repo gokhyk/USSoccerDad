@@ -172,7 +172,7 @@ class GameViewModel: ObservableObject {
         intensity: SubstitutionIntensity,
         availablePlayerIds: Set<UUID>
     ) {
-        // Create game session
+        // Create game session and assign immediately so assignGoalkeeperForHalf() can use self.session
         let newSession = GameSession(
             gameId: gameId,
             teamId: teamId,
@@ -181,23 +181,25 @@ class GameViewModel: ObservableObject {
             players: players,
             availablePlayerIds: availablePlayerIds
         )
-        
-        // Calculate starters
+        session = newSession
+
+        // Assign goalkeeper now so PreGameView can display the designation before kick-off
+        assignGoalkeeperForHalf()
+
+        // Calculate GK-aware starters (GK slot is already filled above)
         let starters = SubstitutionEngine.calculateStarters(
             availablePlayers: newSession.availablePlayers,
             playersOnField: config.playersOnField
         )
-        
+
         newSession.starterIds = starters
-        
+
         // Set starters as on field
         for i in 0..<newSession.playerStats.count {
             if starters.contains(newSession.playerStats[i].id) {
                 newSession.playerStats[i].isOnField = true
             }
         }
-        
-        session = newSession
     }
     
     // MARK: - Game Control

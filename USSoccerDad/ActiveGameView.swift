@@ -225,7 +225,10 @@ struct ActiveGameView: View {
                     // On Field
                     playerSection("On Field (\(session.playersOnField.count))", color: themeManager.colors.success) {
                         LazyVGrid(columns: twoColumns, spacing: 8) {
-                            ForEach(session.playersOnField.sorted { $0.playerName < $1.playerName }) { player in
+                            ForEach(session.playersOnField.sorted { p1, p2 in
+                                if p1.isGoalkeeper != p2.isGoalkeeper { return p1.isGoalkeeper }
+                                return p1.playerName < p2.playerName
+                            }) { player in
                                 onFieldCard(player)
                             }
                         }
@@ -328,7 +331,11 @@ struct ActiveGameView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(themeManager.colors.success.opacity(0.12))
+        .background(
+            player.isGoalkeeper
+                ? Color.blue.opacity(0.12)
+                : themeManager.colors.success.opacity(0.12)
+        )
         .cornerRadius(10)
     }
 

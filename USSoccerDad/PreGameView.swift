@@ -39,17 +39,34 @@ struct PreGameView: View {
                 
                 List {
                     Section(header: Text("Starters").foregroundColor(themeManager.colors.textSecondary)) {
-                        ForEach(session.playersOnField.sorted(by: { $0.playerName < $1.playerName })) { player in
+                        ForEach(session.playersOnField.sorted { p1, p2 in
+                            if p1.isGoalkeeper != p2.isGoalkeeper { return p1.isGoalkeeper }
+                            return p1.playerName < p2.playerName
+                        }) { player in
                             HStack {
                                 Text(player.playerName)
                                     .font(.headline)
                                     .foregroundColor(themeManager.colors.textPrimary)
+                                if player.isGoalkeeper {
+                                    Text("GK")
+                                        .font(.caption2)
+                                        .fontWeight(.bold)
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 2)
+                                        .background(Color.blue.opacity(0.18))
+                                        .foregroundColor(.blue)
+                                        .cornerRadius(4)
+                                }
                                 Spacer()
                                 Text("Season: \(formatMinutes(player.seasonSecondsBeforeGame))")
                                     .font(.caption)
                                     .foregroundColor(themeManager.colors.textSecondary)
                             }
-                            .listRowBackground(themeManager.colors.surface)
+                            .listRowBackground(
+                                player.isGoalkeeper
+                                    ? Color.blue.opacity(0.08)
+                                    : themeManager.colors.surface
+                            )
                         }
                     }
 
