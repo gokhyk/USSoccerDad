@@ -149,11 +149,11 @@ struct ActiveGameView: View {
 
                 Divider()
 
-                // Forced sub proposal banner
+                // Injury sub proposal banner
                 if let proposal = viewModel.forcedSubProposal {
                     VStack(spacing: 6) {
                         HStack {
-                            Label("FORCED SUB", systemImage: "arrow.left.arrow.right.circle.fill")
+                            Label("INJURY SUB", systemImage: "bandage.fill")
                                 .font(.caption)
                                 .fontWeight(.bold)
                                 .foregroundColor(themeManager.colors.warning)
@@ -301,9 +301,19 @@ struct ActiveGameView: View {
                     .fontWeight(.medium)
                     .foregroundColor(themeManager.colors.textPrimary)
                     .lineLimit(1)
+                if player.isGoalkeeper {
+                    Text("GK")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.18))
+                        .foregroundColor(.blue)
+                        .cornerRadius(4)
+                }
                 Spacer(minLength: 2)
                 Button {
-                    // X on field player = forced sub out (move to bench, propose replacement)
+                    // X on field player = injury sub out (mark injured, move to bench, propose replacement)
                     viewModel.forcedSubOut(playerId: player.id)
                 } label: {
                     Image(systemName: "xmark.circle")
@@ -327,23 +337,54 @@ struct ActiveGameView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Circle()
-                    .fill(themeManager.colors.textTertiary)
+                    .fill(player.isInjured ? themeManager.colors.error : themeManager.colors.textTertiary)
                     .frame(width: 10, height: 10)
                 Text(player.playerName)
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundColor(themeManager.colors.textPrimary)
                     .lineLimit(1)
-                Spacer(minLength: 2)
-                Button {
-                    // X on bench player = move to Absent (reversible via "Arrived")
-                    viewModel.markBenchPlayerAbsent(playerId: player.id)
-                } label: {
-                    Image(systemName: "xmark.circle")
+                if player.isInjured {
+                    Text("INJURED")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(themeManager.colors.error.opacity(0.15))
                         .foregroundColor(themeManager.colors.error)
-                        .imageScale(.medium)
+                        .cornerRadius(4)
+                } else if player.isGoalkeeper {
+                    Text("GK")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.18))
+                        .foregroundColor(.blue)
+                        .cornerRadius(4)
                 }
-                .buttonStyle(.plain)
+                Spacer(minLength: 2)
+                if player.isInjured {
+                    // Green heal button for injured players
+                    Button {
+                        viewModel.healInjuredPlayer(playerId: player.id)
+                    } label: {
+                        Image(systemName: "cross.circle.fill")
+                            .foregroundColor(themeManager.colors.success)
+                            .imageScale(.medium)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    // X on normal bench player = move to Absent (reversible via "Arrived")
+                    Button {
+                        viewModel.markBenchPlayerAbsent(playerId: player.id)
+                    } label: {
+                        Image(systemName: "xmark.circle")
+                            .foregroundColor(themeManager.colors.error)
+                            .imageScale(.medium)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             Text(player.formattedSecondsPlayed)
                 .font(.footnote)
@@ -351,7 +392,9 @@ struct ActiveGameView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(themeManager.colors.surface.opacity(0.3))
+        .background(player.isInjured
+            ? themeManager.colors.error.opacity(0.08)
+            : themeManager.colors.surface.opacity(0.3))
         .cornerRadius(10)
     }
 

@@ -63,8 +63,9 @@ struct SubstitutionEngine {
         // and the bench player's total time justifies swapping that pair.
         let threshold = 90
 
-        let sortedOut = playersOnField.sorted { $0.secondsPlayed > $1.secondsPlayed }
-        let sortedIn  = playersOffField.sorted { $0.secondsPlayed < $1.secondsPlayed }
+        // GK never rotates; injured players are not available
+        let sortedOut = playersOnField.filter { !$0.isGoalkeeper }.sorted { $0.secondsPlayed > $1.secondsPlayed }
+        let sortedIn  = playersOffField.filter { !$0.isInjured && !$0.isGoalkeeper }.sorted { $0.secondsPlayed < $1.secondsPlayed }
 
         let maxPossible = min(sortedOut.count, sortedIn.count, 5)
 
@@ -90,7 +91,8 @@ struct SubstitutionEngine {
         // 1. Continuous time (descending) - most tired first
         // 2. Game time (descending) - most played first
         // 3. Season time (descending) - most experienced first
-        let sorted = playersOnField.sorted { p1, p2 in
+        // GK is never subbed out by the engine
+        let sorted = playersOnField.filter { !$0.isGoalkeeper }.sorted { p1, p2 in
             if p1.continuousSecondsPlayed != p2.continuousSecondsPlayed {
                 return p1.continuousSecondsPlayed > p2.continuousSecondsPlayed
             }
@@ -111,7 +113,8 @@ struct SubstitutionEngine {
         // Sort by:
         // 1. Game time (ascending) - least played first
         // 2. Season time (ascending) - least experienced first
-        let sorted = playersOffField.sorted { p1, p2 in
+        // Injured and GK-designated bench players are never brought in by the engine
+        let sorted = playersOffField.filter { !$0.isInjured && !$0.isGoalkeeper }.sorted { p1, p2 in
             if p1.secondsPlayed != p2.secondsPlayed {
                 return p1.secondsPlayed < p2.secondsPlayed
             }
@@ -130,13 +133,15 @@ struct SubstitutionEngine {
         availablePlayers: [PlayerGameStats],
         playersOnField: Int
     ) -> Set<UUID> {
+        // GK is already on field — keep them and fill remaining spots from non-GK players
+        let gkIds = Set(availablePlayers.filter { $0.isGoalkeeper }.map { $0.id })
+        let nonGK = availablePlayers.filter { !$0.isGoalkeeper }
+
         // Sort by season time (ascending) - players with least season time start
-        let sorted = availablePlayers.sorted { p1, p2 in
-            p1.totalSeasonSeconds < p2.totalSeasonSeconds
-        }
-        
-        let starters = Array(sorted.prefix(playersOnField))
-        return Set(starters.map { $0.id })
+        let sorted = nonGK.sorted { $0.totalSeasonSeconds < $1.totalSeasonSeconds }
+        let fieldSlots = max(0, playersOnField - gkIds.count)
+        let starters = Array(sorted.prefix(fieldSlots))
+        return Set(starters.map { $0.id }).union(gkIds)
     }
     
     /// Generate all substitution plans for a period
@@ -157,21 +162,22 @@ struct SubstitutionEngine {
     }
     
     /// Calculate lineup for next period (between period transitions)
-    /// Uses same logic as regular substitutions but rotates entire lineup
+    /// Uses same logic as regular substitutions but rotates entire lineup.
+    /// GK always carries over; injured players are excluded from the field pool.
     static func calculateNextPeriodLineup(
         session: GameSession
     ) -> Set<UUID> {
-        let playersOnField = session.playersOnField
-        let playersOffField = session.playersOffField
-        
-        // Rotate: bring in players with least game time
-        let numberOfPlayersNeeded = session.config.playersOnField
-        
-        let playersToStart = selectPlayersToSubIn(
-            playersOffField: session.playersOffField + playersOnField,
-            count: numberOfPlayersNeeded
-        )
-        
-        return Set(playersToStart.map { $0.id })
+        let all = session.playersOnField + session.playersOffField
+
+        // GK always stays on field (or on bench if they're the second-half GK just assigned)
+        let gkIds = Set(all.filter { $0.isGoalkeeper }.map { $0.id })
+
+        // Field pool: non-GK, non-injured players from both on-field and bench
+        let fieldPool = all.filter { !$0.isGoalkeeper && !$0.isInjured }
+
+        let spotsNeeded = max(0, session.config.playersOnField - gkIds.count)
+        let fieldStarters = selectPlayersToSubIn(playersOffField: fieldPool, count: spotsNeeded)
+
+        return Set(fieldStarters.map { $0.id }).union(gkIds)
     }
 }

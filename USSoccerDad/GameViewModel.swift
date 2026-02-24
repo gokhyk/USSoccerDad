@@ -18,6 +18,8 @@ struct ForcedSubProposal {
     let proposedPlayerInName: String
     /// Countdown seconds remaining (-1 = no auto-complete, 0+ = counting down)
     var countdownSeconds: Int
+    /// True when the injured player was the goalkeeper — replacement should inherit GK role
+    var isReplacingGoalkeeper: Bool = false
 }
 
 @MainActor
@@ -203,10 +205,24 @@ class GameViewModel: ObservableObject {
     /// Start the game clock (coach presses "Whistle")
     func startGameClock() {
         guard let session = session else { return }
-        
+
+        // Assign goalkeeper for the first half before calculating starters
+        assignGoalkeeperForHalf()
+
+        // Recalculate starters so GK is already on field and non-GK slots are filled
+        let starters = SubstitutionEngine.calculateStarters(
+            availablePlayers: session.availablePlayers,
+            playersOnField: session.config.playersOnField
+        )
+        for i in 0..<session.playerStats.count {
+            if session.playerStats[i].wasPresent && !session.playerStats[i].leftEarly {
+                session.playerStats[i].isOnField = starters.contains(session.playerStats[i].id)
+            }
+        }
+
         // Generate substitution plans for first period
         generateSubstitutionPlans(for: session.currentPeriod)
-        
+
         session.phase = .running
         startTimer()
     }
@@ -214,7 +230,13 @@ class GameViewModel: ObservableObject {
     /// Start period after break
     func startPeriod() {
         guard let session = session else { return }
-        
+
+        // Reassign goalkeeper at the start of the second half
+        let periodsPerHalf = max(1, session.config.periods / 2)
+        if session.currentPeriod == periodsPerHalf + 1 {
+            assignGoalkeeperForHalf()
+        }
+
         // Calculate lineup for new period
         let newLineup = SubstitutionEngine.calculateNextPeriodLineup(session: session)
         
@@ -469,26 +491,42 @@ class GameViewModel: ObservableObject {
     
     // MARK: - Forced Substitutions
 
-    /// Coach pressed X on a field player — move them to bench and propose a replacement.
+    /// Coach pressed X on a field player — mark them injured, move to bench, propose a replacement.
     func forcedSubOut(playerId: UUID) {
         guard let session = session else { return }
         guard let outIndex = session.playerStats.firstIndex(where: { $0.id == playerId }),
               session.playerStats[outIndex].isOnField else { return }
 
-        // Move player off field to bench (keeps wasPresent=true, not leftEarly)
+        // Remember if this player was goalkeeper, then clear designation
+        let wasGoalkeeper = session.playerStats[outIndex].isGoalkeeper
+        session.playerStats[outIndex].isGoalkeeper = false
+
+        // Mark injured and move off field
+        session.playerStats[outIndex].isInjured = true
         session.playerStats[outIndex].isOnField = false
         session.playerStats[outIndex].continuousSecondsPlayed = 0
 
-        // Find best replacement: bench player with least playing time
-        let benchCandidates = session.playerStats.filter {
-            !$0.isOnField && $0.wasPresent && !$0.leftEarly && $0.id != playerId
+        // Find best replacement: bench player with least playing time, excluding injured and GK
+        var benchCandidates = session.playerStats.filter {
+            !$0.isOnField && $0.wasPresent && !$0.leftEarly
+            && !$0.isInjured && !$0.isGoalkeeper && $0.id != playerId
+        }
+
+        // If replacing a GK, prefer canPlayGK-flagged bench players; fall back to full bench if none
+        if wasGoalkeeper {
+            let gkQualified = benchCandidates.filter { stat in
+                players.first(where: { $0.id == stat.id })?.canPlayGK == true
+            }
+            if !gkQualified.isEmpty {
+                benchCandidates = gkQualified
+            }
         }
 
         guard let proposed = benchCandidates.min(by: { lhs, rhs in
             if lhs.secondsPlayed != rhs.secondsPlayed { return lhs.secondsPlayed < rhs.secondsPlayed }
             return lhs.totalSeasonSeconds < rhs.totalSeasonSeconds
         }) else {
-            // No bench players available — player just sits on bench
+            // No bench players available — injured player just sits on bench
             return
         }
 
@@ -497,7 +535,8 @@ class GameViewModel: ObservableObject {
             playerOutName: session.playerStats[outIndex].playerName,
             proposedPlayerInId: proposed.id,
             proposedPlayerInName: proposed.playerName,
-            countdownSeconds: autoCompleteSubstitutions ? 15 : -1
+            countdownSeconds: autoCompleteSubstitutions ? 15 : -1,
+            isReplacingGoalkeeper: wasGoalkeeper
         )
     }
 
@@ -510,6 +549,10 @@ class GameViewModel: ObservableObject {
             $0.id == proposal.proposedPlayerInId && !$0.isOnField && $0.wasPresent && !$0.leftEarly
         }) {
             session.playerStats[inIndex].isOnField = true
+            // Inherit goalkeeper role if replacing an injured GK
+            if proposal.isReplacingGoalkeeper {
+                session.playerStats[inIndex].isGoalkeeper = true
+            }
         }
 
         forcedSubProposal = nil
@@ -518,6 +561,43 @@ class GameViewModel: ObservableObject {
     /// Dismiss the forced sub proposal without sending anyone on.
     func dismissForcedSub() {
         forcedSubProposal = nil
+    }
+
+    /// Heal an injured bench player — removes the INJURED flag and returns them to normal bench pool.
+    func healInjuredPlayer(playerId: UUID) {
+        guard let session = session else { return }
+        guard let index = session.playerStats.firstIndex(where: { $0.id == playerId }) else { return }
+        session.playerStats[index].isInjured = false
+    }
+
+    /// Designate one goalkeeper for the current half.
+    /// Clears all previous GK designations first, then picks the qualifying player with
+    /// the least total season time and places them on the field.
+    private func assignGoalkeeperForHalf() {
+        guard let session = session else { return }
+
+        // Clear existing GK designations
+        for i in 0..<session.playerStats.count {
+            session.playerStats[i].isGoalkeeper = false
+        }
+
+        // Pool: present, not injured, not left early
+        let candidates = session.playerStats.filter {
+            $0.wasPresent && !$0.isInjured && !$0.leftEarly
+        }
+
+        // Prefer canPlayGK players; fall back to everyone if none flagged
+        let gkQualified = candidates.filter { stat in
+            players.first(where: { $0.id == stat.id })?.canPlayGK == true
+        }
+        let pool = gkQualified.isEmpty ? candidates : gkQualified
+
+        guard let chosen = pool.min(by: { $0.totalSeasonSeconds < $1.totalSeasonSeconds }) else { return }
+
+        if let idx = session.playerStats.firstIndex(where: { $0.id == chosen.id }) {
+            session.playerStats[idx].isGoalkeeper = true
+            session.playerStats[idx].isOnField = true
+        }
     }
 
     /// Tick forced sub auto-complete countdown; fires confirmForcedSub when it reaches zero.

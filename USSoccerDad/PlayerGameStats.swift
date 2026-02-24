@@ -32,9 +32,15 @@ struct PlayerGameStats: Identifiable, Equatable {
     
     /// Track if player left early (before game ended)
     var leftEarly: Bool = false
-    
+
     /// Time in seconds when player left (for early departures)
     var departureTime: Int = 0
+
+    /// Whether the player is currently injured (excluded from sub logic)
+    var isInjured: Bool = false
+
+    /// Whether the player is the designated goalkeeper this half
+    var isGoalkeeper: Bool = false
     
     /// Player's cumulative season minutes before this game (for prioritization)
     var seasonSecondsBeforeGame: Int = 0
